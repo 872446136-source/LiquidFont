@@ -95,7 +95,9 @@ def build() -> Path:
         for path, arc in files:
             info = zipfile.ZipInfo.from_file(path, arc)
             info.compress_type = zipfile.ZIP_DEFLATED
-            info.external_attr = 0o100644 << 16
+            # 脚本给可执行位，其余 0644
+            exe = arc.endswith(".sh") or arc.endswith("update-binary")
+            info.external_attr = (0o100755 if exe else 0o100644) << 16
             z.writestr(info, path.read_bytes())
 
     return out
