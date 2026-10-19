@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+<meta name="theme-color" content="#07070b" />
+<title>LiquidFont · 液态玻璃字体模块</title>
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+<!-- 液态玻璃背景 -->
+<div class="bg" aria-hidden="true">
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+  <div class="blob b4"></div>
+  <div class="caustics"></div>
+  <div class="dots"></div>
+  <div class="sheen"></div>
+  <div class="grain"></div>
+  <div class="vignette"></div>
+</div>
+<div class="lens" id="lens" aria-hidden="true"></div>
+
+<div class="app">
+  <header class="topbar glass ring">
+    <div class="brand">
+      <span class="mark">
+        <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.4"/><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.4" opacity=".55"/><circle cx="15.4" cy="8.6" r="1.5" fill="currentColor" opacity=".85"/></svg>
+      </span>
+      <div class="brand-text">
+        <h1>LiquidFont</h1>
+        <p id="sys-line">正在读取设备…</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span class="dot" id="state-dot" title="模块状态"></span>
+      <button class="icon-btn" id="theme-btn" aria-label="切换主题">
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.6v2M12 19.4v2M2.6 12h2M19.4 12h2M5.4 5.4l1.4 1.4M17.2 17.2l1.4 1.4M18.6 5.4l-1.4 1.4M6.8 17.2l-1.4 1.4"/></svg>
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2Z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="main">
+
+    <!-- ══════════ 概览 ══════════ -->
+    <section class="view is-active" id="view-home">
+      <div class="hero glass ring reveal" style="--i:0">
+        <div class="hero-glow"></div>
+        <p class="eyebrow">COLOROS 17 · FONT ENGINE</p>
+        <h2 class="hero-title">把整套字体<br /><em>换成你喜欢的样子</em></h2>
+        <p class="hero-sub" id="hero-sub">五个槽位独立配置，改完点一下，重启即生效。</p>
+        <div class="hero-actions">
+          <button class="btn primary" id="apply-btn">
+            <span class="btn-shine"></span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9 17.5 20 6.5"/></svg>
+            应用字体
+          </button>
+          <button class="btn ghost" id="reload-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4.5h-4.5"/></svg>
+            刷新状态
+          </button>
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat glass ring reveal" style="--i:1">
+          <span class="stat-num" id="stat-set">0</span>
+          <span class="stat-label">已配置槽位</span>
+        </div>
+        <div class="stat glass ring reveal" style="--i:2">
+          <span class="stat-num" id="stat-size">0<small>MB</small></span>
+          <span class="stat-label">字体总占用</span>
+        </div>
+        <div class="stat glass ring reveal" style="--i:3">
+          <span class="stat-num" id="stat-state">—</span>
+          <span class="stat-label">当前状态</span>
+        </div>
+      </div>
+
+      <h3 class="section-title reveal" style="--i:4">槽位一览</h3>
+      <div class="mini-list" id="mini-list"></div>
+
+      <div class="note glass ring reveal" style="--i:9">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 8.5v.01M12 11.5v4"/><circle cx="12" cy="12" r="9"/></svg>
+        <p>字体文件通过 overlay 挂载到 <code>/system/fonts</code>，重启后全局生效。删除模块即完整还原。</p>
+      </div>
+    </section>
+
+    <!-- ══════════ 槽位 ══════════ -->
+    <section class="view" id="view-slots">
+      <div class="view-head reveal" style="--i:0">
+        <h2>字体槽位</h2>
+        <p>每个槽位对应系统里的一组字族，可分别替换。</p>
+      </div>
+      <div id="slot-list"></div>
+      <div class="row-actions reveal" style="--i:8">
+        <button class="btn primary wide" id="apply-btn-2">
+          <span class="btn-shine"></span>
+          应用全部槽位
+        </button>
+        <button class="btn ghost wide" id="clear-all">清空全部字体</button>
+      </div>
+    </section>
+
+    <!-- ══════════ 预览 ══════════ -->
+    <section class="view" id="view-preview">
+      <div class="view-head reveal" style="--i:0">
+        <h2>实时预览</h2>
+        <p>用本地字体文件直接渲染，所见即所得。</p>
+      </div>
+
+      <div class="preview-card glass ring reveal" style="--i:1">
+        <div class="preview-badge" id="preview-badge">未选择字体</div>
+        <div class="preview-text" id="preview-text" contenteditable="true" spellcheck="false">液态玻璃
+Liquid Glass 0123456789
+永和九年，岁在癸丑，暮春之初。</div>
+      </div>
+
+      <div class="ctrl glass ring reveal" style="--i:2">
+        <label class="ctrl-row">
+          <span>字号 <b id="size-val">34</b> px</span>
+          <input type="range" id="size-range" min="14" max="72" value="34" />
+        </label>
+        <label class="ctrl-row" id="weight-row">
+          <span>字重 <b id="weight-val">400</b></span>
+          <input type="range" id="weight-range" min="100" max="1000" step="10" value="400" />
+        </label>
+        <div class="seg" id="sample-seg">
+          <button class="seg-btn is-on" data-sample="mix">混合</button>
+          <button class="seg-btn" data-sample="zh">中文</button>
+          <button class="seg-btn" data-sample="en">西文</button>
+          <button class="seg-btn" data-sample="num">数字</button>
+        </div>
+      </div>
+
+      <div class="note glass ring reveal" style="--i:3">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 6h16M4 12h10M4 18h13"/></svg>
+        <p>预览用的是<b>简体槽位</b>的字体；西文槽位可在选择后于卡片上直接查看。</p>
+      </div>
+    </section>
+
+    <!-- ══════════ 更多 ══════════ -->
+    <section class="view" id="view-more">
+      <div class="view-head reveal" style="--i:0">
+        <h2>高级与关于</h2>
+        <p>诊断、清理与版本信息。</p>
+      </div>
+
+      <div class="card glass ring reveal" style="--i:1">
+        <h3 class="card-title">运行环境</h3>
+        <dl class="kv" id="env-list">
+          <div><dt>Root 管理器</dt><dd id="env-root">—</dd></div>
+          <div><dt>模块目录</dt><dd id="env-moddir">—</dd></div>
+          <div><dt>系统版本</dt><dd id="env-rom">—</dd></div>
+          <div><dt>WebUI 模式</dt><dd id="env-mode">—</dd></div>
+        </dl>
+      </div>
+
+      <div class="card glass ring reveal" style="--i:2">
+        <h3 class="card-title">操作</h3>
+        <div class="stack">
+          <button class="btn ghost wide" id="log-btn">查看最近一次应用日志</button>
+          <button class="btn ghost wide" id="restore-btn">还原系统默认字体</button>
+        </div>
+      </div>
+
+      <pre class="log glass ring reveal" id="log-box" style="--i:3" hidden></pre>
+
+      <div class="card glass ring reveal" style="--i:4">
+        <h3 class="card-title">关于</h3>
+        <p class="about">
+          <b>LiquidFont</b> 是一个面向 ColorOS 16 / 17 的字体替换模块，
+          内置五槽位配置与全液态玻璃 WebUI。字体文件由你自己提供，模块本身不附带任何商用字体。
+        </p>
+        <dl class="kv">
+          <div><dt>版本</dt><dd id="about-ver">1.0.0</dd></div>
+          <div><dt>字体配置</dt><dd>ColorOS 17 (fonts.xml / base / ule)</dd></div>
+          <div><dt>许可</dt><dd>GPL-3.0</dd></div>
+        </dl>
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="dock glass ring" id="dock">
+    <span class="ind" id="ind"></span>
+    <button class="dock-btn is-on" data-view="home" aria-label="概览">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></svg>
+      <span>概览</span>
+    </button>
+    <button class="dock-btn" data-view="slots" aria-label="槽位">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="5.5" rx="2"/><rect x="3.5" y="14" width="17" height="5.5" rx="2"/></svg>
+      <span>槽位</span>
+    </button>
+    <button class="dock-btn" data-view="preview" aria-label="预览">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7.5V5.5h15v2"/><path d="M12 5.5v13"/><path d="M9 18.5h6"/></svg>
+      <span>预览</span>
+    </button>
+    <button class="dock-btn" data-view="more" aria-label="更多">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 12h4M12 12h8M4 17h9M17 17h3"/><circle cx="16" cy="7" r="1.8"/><circle cx="10" cy="12" r="1.8"/><circle cx="15" cy="17" r="1.8"/></svg>
+      <span>更多</span>
+    </button>
+  </nav>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<input type="file" id="picker" accept=".ttf,.otf,font/ttf,font/otf,application/x-font-ttf" hidden />
+
+<div class="progress-wrap" id="progress" hidden>
+  <div class="progress glass ring">
+    <div class="progress-head"><span id="progress-label">写入中…</span><b id="progress-pct">0%</b></div>
+    <div class="bar"><i id="progress-bar"></i></div>
+  </div>
+</div>
+
+<script src="assets/fontinfo.js"></script>
+<script src="assets/bridge.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>

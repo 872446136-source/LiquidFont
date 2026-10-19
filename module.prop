@@ -1,0 +1,7 @@
+id=LiquidFont
+name=LiquidFont 液态玻璃字体
+version=1.0.0
+versionCode=10000
+author=LiquidFont
+description=ColorOS 17 字体替换模块 · 五槽位独立配置 · 全液态玻璃 WebUI · 免重启预演
+updateJson=https://raw.githubusercontent.com/872446136-source/LiquidFont/main/update.json

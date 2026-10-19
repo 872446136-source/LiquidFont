@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 检查并打包
+        run: python build.py
+
+      - name: 读取版本号
+        id: meta
+        run: |
+          VERSION=$(sed -n 's/^version=//p' module.prop)
+          CODE=$(sed -n 's/^versionCode=//p' module.prop)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+
+      - name: 生成 update.json
+        run: |
+          cat > dist/update.json <<EOF
+          {
+            "version": "${{ steps.meta.outputs.version }}",
+            "versionCode": ${{ steps.meta.outputs.code }},
+            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/LiquidFont-v${{ steps.meta.outputs.version }}.zip",
+            "changelog": "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.event.repository.default_branch }}/CHANGELOG.md"
+          }
+          EOF
+
+      - name: 创建 Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: LiquidFont v${{ steps.meta.outputs.version }}
+          files: |
+            dist/LiquidFont-v${{ steps.meta.outputs.version }}.zip
+            dist/update.json
+          body_path: CHANGELOG.md
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LiquidFont-v${{ steps.meta.outputs.version }}
+          path: dist/*.zip

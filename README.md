@@ -1,0 +1,109 @@
+# LiquidFont
+
+> ColorOS 16 / 17 字体替换模块 · 五槽位独立配置 · 全液态玻璃 WebUI
+
+LiquidFont 把「换字体」这件事做成了一件顺手的事：把 `.ttf` / `.otf` 丢进 WebUI，
+选好槽位，点一下应用，重启。没有命令行，没有编辑器，也不用记 fonts.xml 里那些字族名。
+
+![概览](docs/screenshots/home-dark.png)
+
+## 特性
+
+- **五个槽位，各管各的** — 简体 / 繁体 / 西文 / 等宽 / Emoji，互不牵连；缺省自动回退。
+- **全液态玻璃 WebUI** — 网格渐变 + 流动极光 + 镜面高光的玻璃拟态，深色 / 浅色双主题，
+  底栏液态指示器、指针透镜、涟漪与弹性反馈，全部纯 CSS + 原生 JS，零构建、零依赖。
+- **选字体前先看效果** — 直接用你选的字体文件在页面里渲染，字号 / 字重可拖；
+  顺便读出家族名、字重轴、字形数与中文 / 西文覆盖量。
+- **ColorOS 17 的完整映射** — 除 `SysFont-Regular` / `SysSans-En` 外，还覆盖 ColorOS 17
+  新增的 `OPSans-En`，避免某些界面英文没换干净。
+- **安全** — 只做 overlay 挂载，删除模块即完整还原；提供一键还原与日志查看。
+
+| 槽位 | 作用 | 目标文件 |
+| --- | --- | --- |
+| `hans.ttf` | 简体中文（必选） | `SysSans-Hans-Regular` `SysFont-Hans-Regular` `SysFont-Static-Regular` `SysFont-Myanmar` |
+| `hant.ttf` | 繁体中文（可选） | `SysSans-Hant-Regular` `SysFont-Hant-Regular` |
+| `en.ttf` | 西文与数字（可选） | `SysFont-Regular` `SysSans-En-Regular` `OPSans-En-Regular` |
+| `mono.ttf` | 等宽（可选） | `DroidSansMono` `CutiveMono` |
+| `emoji.ttf` | Emoji（可选） | `NotoColorEmoji` |
+
+## 安装
+
+1. 下载 Release 里的 `LiquidFont-v*.zip`；
+2. 在 Magisk / KernelSU / SukiSU 里刷入；
+3. 重启，打开模块的 WebUI（KernelSU 系自带；Magisk 需 WebUI X 或 KsuWebUI Standalone）；
+4. 在「槽位」页选好字体 → 「应用字体」→ 再重启一次。
+
+> 安装后建议在系统设置里把字体选成 **Roboto**，这样字重映射才和 fonts.xml 对得上。
+
+### 环境要求
+
+- ColorOS 16 / 17（其它系统能装，但 fonts.xml 的字族可能对不上，会出现缺字）
+- Magisk 20.4+ / KernelSU（KernelSU 3.0+ 需要元模块：mountify / hybrid_mount）
+- 字体格式：`.ttf` / `.otf`，单个文件建议 ≤ 30 MB
+
+## 使用说明
+
+- **必须先配简体**，其它槽位都可以空着；空着时会回退到简体（等宽 / Emoji 空着则保留系统默认）。
+- **西文槽位不要选带汉字的字体**。`fonts.xml` 里 `sans-serif` 排在 `zh-Hans` 之前，
+  西文字体自带的汉字会盖掉中文字体。WebUI 会读 cmap 检测并在卡片上给出 ⚠ 提示。
+  若确实要用（例如思源黑体全家桶），把 `hb-subset` 编译成 `tools/subset` 放进模块，
+  `apply.sh` 会自动裁掉西文槽位的 CJK 字形（见 `tools/README.md`）。
+- 应用字体后必须**重启**，字体是开机时被系统读进缓存的。
+
+## 目录结构
+
+```
+LiquidFont/
+├── module.prop                 # 模块信息
+├── customize.sh                # 刷入脚本：环境检查 / 继承旧字体 / 补齐派生 XML
+├── apply.sh                    # 应用脚本：五槽位 → system/fonts（WebUI 也调用它）
+├── uninstall.sh                # 卸载清理
+├── FONTS/                      # 槽位目录（hans/hant/en/mono/emoji.ttf）
+├── system/
+│   ├── etc/fonts.xml           # ColorOS 17 主字体配置
+│   └── system_ext/etc/
+│       ├── fonts_base.xml      # 派生配置
+│       └── fonts_ule.xml       # 派生配置（ULE）
+├── webroot/                    # WebUI（KernelSU 规范目录）
+│   ├── index.html
+│   └── assets/{style.css,app.js,bridge.js,fontinfo.js}
+├── tools/                      # 可选原生工具（subset）
+├── dev/shot.mjs                # 开发用：CDP 截图 / 量尺寸
+└── build.py                    # 打包成可刷入 zip
+```
+
+## 构建
+
+```bash
+python build.py            # 产出 dist/LiquidFont-v1.0.0.zip
+python build.py --no-zip   # 只做检查
+```
+
+打包不需要 Node、不需要 NDK，只需要 Python 3。CI 见 `.github/workflows/release.yml`。
+
+## 实现说明
+
+- **为什么改 4 份 XML**：ColorOS 17 的字体由 `system/etc/fonts.xml` 与
+  `system/system_ext/etc/fonts_{base,ule}.xml` 共同决定，只改一份会出现「设置里变了、
+  桌面没变」。模块直接带上这 4 份（`font_fallback.xml` 刷入时从设备复制，没有就用主配置兜底）。
+- **为什么用 overlay 而不是替换**：模块目录里的 `system/fonts/*.ttf` 由管理器挂载到
+  真实路径，模块停用 / 卸载后挂载消失，系统字体自动回来，没有「刷坏回不去」的风险。
+- **WebUI 怎么把文件写进去**：KernelSU 只给了 `ksu.exec`，没有文件 API。所以前端把字体
+  base64 分块（64 KB/块，避开 argv 128 KB 上限）用 `printf | base64 -d >>` 追加写，
+  最后用 `wc -c` 校验字节数，不一致就报错。
+
+## 已知限制
+
+- 没有内置 Zygisk 字体预加载。被 DenyList / 隐藏应用列表「卸载」掉模块的应用，
+  可能读不到字体而回退默认字体（FontMM 用原生 warmUpCache 解决，本模块暂未实现）。
+- 不做可变字体 `wght` 轴重写。字体自带的字重轴如果与系统的 100–900 对不上，
+  表现是粗细层次不自然，需要在字体侧处理。
+
+## 致谢
+
+- [FontMM](https://github.com/YuleBest/FontMM) — 五槽位思路与 ColorOS 字体配置的先行者。
+- 字体配置文件来自 ColorOS 17 系统镜像，版权归 OPPO / 各字体厂商所有，仅供个人折腾使用。
+
+## 许可
+
+[GPL-3.0](LICENSE)。模块本身不附带任何字体文件。
