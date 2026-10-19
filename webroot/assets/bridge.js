@@ -96,6 +96,12 @@
         gms: (() => {
           const on = localStorage.getItem('lf.gms') === 'on';
           return { flag: on ? 'on' : 'off', state: on ? 'taken' : 'normal' };
+        })(),
+        hide: (() => {
+          const on = localStorage.getItem('lf.hide') === 'on';
+          return on
+            ? { root: 'ksu', meta: 'mountify', metamode: 'metamodule', fake: 'my_manifest', dev: 'KSU', mounts: '2', zygisk: 'Zygisk Next', legacy: 0, state: 'hardened' }
+            : { root: 'ksu', meta: 'mountify', metamode: 'metamodule', fake: 'mountify', dev: 'overlay', mounts: '2', zygisk: 'none', legacy: 0, state: 'partial' };
         })()
       };
     }
@@ -106,13 +112,15 @@
       `echo "@rom=$(getprop ro.build.version.oplusrom.display 2>/dev/null)"; ` +
       `echo "@api=$(getprop ro.build.version.oplus.api 2>/dev/null)"; ` +
       `if [ -f ${MODDIR}/gms.sh ]; then sh ${MODDIR}/gms.sh status 2>/dev/null; ` +
-      `else echo "gms.state=missing"; fi`;
+      `else echo "gms.state=missing"; fi; ` +
+      `if [ -f ${MODDIR}/hide.sh ]; then sh ${MODDIR}/hide.sh status 2>/dev/null; fi`;
     const r = await exec(cmd);
     const slots = {};
     ['hans', 'hant', 'en', 'mono', 'emoji'].forEach((s) => (slots[s] = { set: false, size: 0 }));
     let applied = false, rom = '', missing = false, fallback = 'missing';
     const fbVersions = { plangothic: '', unifont: '' };
     const gms = { flag: 'off', state: 'missing' };
+    const hide = { root: '', meta: 'none', metamode: 'none', fake: '-', dev: '-', mounts: '-', zygisk: 'none', legacy: 0, state: 'basic' };
     r.out.split('\n').forEach((line) => {
       const t = line.trim();
       if (!t) return;
@@ -124,13 +132,21 @@
       if (t.startsWith('fb.unifont_version=')) return void (fbVersions.unifont = t.slice(19));
       if (t.startsWith('gms.flag=')) return void (gms.flag = t.slice(9));
       if (t.startsWith('gms.state=')) return void (gms.state = t.slice(10));
+      if (t.startsWith('hide.')) {
+        const k = t.slice(5), i = k.indexOf('=');
+        if (i > 0) {
+          const key = k.slice(0, i), val = k.slice(i + 1);
+          hide[key] = key === 'legacy' ? +val || 0 : val;
+        }
+        return;
+      }
       const m = /^slot\.(\w+)=(set|empty)$/.exec(t);
       if (m) return void (slots[m[1]] = slots[m[1]] || { set: false, size: 0 }, (slots[m[1]].set = m[2] === 'set'));
       const n = /^size\.(\w+)=(\d+)$/.exec(t);
       if (n) return void (slots[n[1]] && (slots[n[1]].size = +n[2]));
       if (t === 'applied=1') applied = true;
     });
-    return { mode: missing ? 'missing' : 'native', slots, applied, rom, fallback, fbVersions, gms, raw: r.out };
+    return { mode: missing ? 'missing' : 'native', slots, applied, rom, fallback, fbVersions, gms, hide, raw: r.out };
   }
 
   /* ───────── 写入字体 ───────── */
@@ -235,6 +251,19 @@
     return { ok: r.code === 0 && !/\[✗\]/.test(out), out };
   }
 
+  /* ───────── 挂载隐藏 ───────── */
+  // apply  = 把元模块配置改成「伪装挂载点 + 可被 Zygisk 卸载」，并清掉旧命名文件
+  // restore = 用 hide.sh 留下的备份还原元模块配置
+  async function setHide(on) {
+    if (!KSU) {
+      try { localStorage.setItem('lf.hide', on ? 'on' : 'off'); } catch (e) { /* ignore */ }
+      return { ok: true, out: '' };
+    }
+    const r = await exec(`sh ${MODDIR}/hide.sh ${on ? 'apply' : 'restore'}`, 60000);
+    const out = (r.out || r.err || '').trim();
+    return { ok: r.code === 0, out };
+  }
+
   /* ───────── 应用 / 还原 ───────── */
   async function apply() {
     if (!KSU) {
@@ -269,7 +298,7 @@
   }
 
   global.LF = {
-    bridge: { MODE, MODDIR, status, write, readBytes, clear, clearAll, apply, lastLog, restore, setFallback, setGms, exec, toast },
+    bridge: { MODE, MODDIR, status, write, readBytes, clear, clearAll, apply, lastLog, restore, setFallback, setGms, setHide, exec, toast },
     bytesToB64,
     b64ToBytes
   };

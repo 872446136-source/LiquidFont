@@ -41,10 +41,10 @@ SLOTS="hans hant en mono emoji"
 
 # 内置全字库 → system/fonts 的落点
 #   遍黑体：系统里本来就有同名文件，直接顶替（新版本覆盖旧版本）
-#   Unifont：写到 LiquidFont-Unifont*.otf，由模块内置的 fonts.xml 末尾两个字族引用，
+#   Unifont：写到 SysFont-Unicode*.otf（沿用 OPPO 自己的 SysFont- 前缀，避免留下模块特征），
 #            排在整条兜底链最后，只接管前面没人认领的码位
 FB_PLANGOTHIC="PlangothicP1.ttf PlangothicP2.ttf"
-FB_UNIFONT="LiquidFont-Unifont.otf LiquidFont-UnifontUpper.otf"
+FB_UNIFONT="SysFont-Unicode.otf SysFont-UnicodeExt.otf"
 FB_TARGETS="$FB_PLANGOTHIC $FB_UNIFONT"
 
 # ---------- 状态 ----------
@@ -71,7 +71,7 @@ print_status() {
         echo "fallback=missing"
     elif [ -f "$FB_OFF" ]; then
         echo "fallback=off"
-    elif [ -f "$DEST/LiquidFont-Unifont.otf" ]; then
+    elif [ -f "$DEST/SysFont-Unicode.otf" ]; then
         echo "fallback=applied"
     else
         echo "fallback=idle"
@@ -206,17 +206,24 @@ install_fallback() {
 
     # Unifont：写到自己的文件名，由 fonts.xml 末尾的字族引用
     if [ -f "$FB/Unifont.otf" ]; then
-        cp -f "$FB/Unifont.otf" "$DEST/LiquidFont-Unifont.otf" || die "复制 Unifont 失败"
-        echo "[*] 安装 LiquidFont-Unifont.otf"
+        cp -f "$FB/Unifont.otf" "$DEST/SysFont-Unicode.otf" || die "复制 Unifont 失败"
+        echo "[*] 安装 SysFont-Unicode.otf"
     fi
     if [ -f "$FB/UnifontUpper.otf" ]; then
-        cp -f "$FB/UnifontUpper.otf" "$DEST/LiquidFont-UnifontUpper.otf" || die "复制 Unifont Upper 失败"
-        echo "[*] 安装 LiquidFont-UnifontUpper.otf"
+        cp -f "$FB/UnifontUpper.otf" "$DEST/SysFont-UnicodeExt.otf" || die "复制 Unifont Upper 失败"
+        echo "[*] 安装 SysFont-UnicodeExt.otf"
     fi
 }
 
 # ---------- 主流程 ----------
 [ -f "$FONTS/hans.ttf" ] || die "FONTS/hans.ttf 不存在，请先在 WebUI 里选择简体字体"
+
+# v1.2.0 及以前 Unifont 落盘叫 LiquidFont-Unifont*.otf。升级后这些文件不会被覆盖，
+# 留着就是一条「这里装过 LiquidFont」的线索，顺手清掉。
+for f in "$DEST"/LiquidFont-*; do
+    [ -e "$f" ] || continue
+    rm -f "$f" && echo "[-] 清除旧命名文件 ${f##*/}"
+done
 
 echo "[*] 简体"
 install_from "$FONTS/hans.ttf" "$SLOT_HANS" "SysSans-Hans-Regular.ttf"

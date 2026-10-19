@@ -21,6 +21,7 @@ INCLUDE = [
     "customize.sh",
     "apply.sh",
     "gms.sh",
+    "hide.sh",
     "uninstall.sh",
     "META-INF",
     "system",

@@ -606,6 +606,8 @@ code {
 }
 .chip.on { color: #4ade9a; background: rgba(61, 220, 138, .15); }
 html[data-theme="light"] .chip.on { color: #0f8a53; background: rgba(16, 160, 92, .12); }
+.chip.warn { color: #f5b544; background: rgba(245, 181, 68, .15); }
+html[data-theme="light"] .chip.warn { color: #a4650b; background: rgba(214, 143, 30, .14); }
 
 .slot-desc {
   margin: 4px 0 0;

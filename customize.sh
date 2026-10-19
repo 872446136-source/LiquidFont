@@ -141,11 +141,21 @@ CHECK_FONTLOADER() {
     done
 }
 
+# ---------- 挂载痕迹 ----------
+# 元模块模式下，模块目录里残留 skip_mount 会让 mountify 直接跳过本模块（字体不生效），
+# 顺手清掉；旧命名的字体文件也一起清。剩下的伪装配置交给 WebUI 的「一键加固」，
+# 刷入阶段不擅自改别的模块的配置。
+HARDEN() {
+    [ -f "$MODPATH/hide.sh" ] || return 0
+    sh "$MODPATH/hide.sh" auto "$MODPATH" 2>/dev/null
+}
+
 # ---------- 主流程 ----------
 MAIN() {
     CHECK_SYSTEM
     CHECK_METAMODULE
     CHECK_FONTLOADER
+    HARDEN
 
     echo && log "准备字体..."
     IMPORT_OLD_FONTS

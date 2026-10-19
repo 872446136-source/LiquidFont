@@ -27,6 +27,7 @@
     fallback: 'idle',
     fbVersions: { plangothic: '', unifont: '' },
     gms: { flag: 'off', state: 'missing' },
+    hide: { root: '', meta: 'none', metamode: 'none', fake: '-', dev: '-', zygisk: 'none', legacy: 0, state: 'basic' },
     mode: B.MODE,
     slots: {},
     meta: {},
@@ -289,10 +290,65 @@
     }
   }
 
+  function renderHide() {
+    const chip = $('#hide-chip');
+    if (!chip) return;
+    const h = state.hide || {};
+
+    const hasMeta = h.meta && h.meta !== 'none';
+    $('#hide-meta').textContent = hasMeta
+      ? h.meta + (h.metamode === 'metamodule' ? ' · 元模块' : ' · 普通模块')
+      : '无 · 由 KSU 自己挂载';
+    $('#hide-fake').textContent = h.fake && h.fake !== '-' ? '/mnt/vendor/' + h.fake : '—';
+    $('#hide-zygisk').textContent = h.zygisk && h.zygisk !== 'none' ? h.zygisk : '未检测到';
+    $('#hide-legacy').textContent = h.legacy > 0 ? h.legacy + ' 个（加固时清除）' : '无';
+
+    const map = {
+      hardened: ['已加固', 'ok'],
+      partial: ['可加固', 'warn'],
+      basic: ['未启用元模块', 'warn']
+    };
+    const hit = map[h.state] || ['—', ''];
+    chip.textContent = hit[0];
+    chip.className = 'chip' + (hit[1] === 'ok' ? ' on' : hit[1] === 'warn' ? ' warn' : '');
+
+    let tip;
+    if (h.state === 'hardened') {
+      tip = h.zygisk && h.zygisk !== 'none'
+        ? '挂载点已伪装。最后一步：在 ' + h.zygisk + ' 里把 Denylist Policy 设为 Enforced 或 Unmount Only，被屏蔽的应用才会看不到这层挂载。'
+        : '挂载点已伪装，但没有 Zygisk 提供者，挂载无法对指定应用单独隐藏。建议装 Zygisk Next 或 ReZygisk。';
+    } else if (h.state === 'partial') {
+      tip = '元模块已就位，但挂载点还是默认的 mountify。点下面的按钮把伪装名、诱饵挂载和挂载源一次性配好。';
+    } else if (state.mode === 'demo') {
+      tip = '演示模式：这里显示的是加固后的样子。真机上点一下会把 mountify 配置改成伪装挂载点。';
+    } else {
+      tip = '没有元模块时，KSU 会给每个字体文件单独挂载，挂载点数量很容易被数出来。KernelSU 3.0+ 请先刷 mountify，再回来点加固。';
+    }
+    $('#hide-tip').textContent = tip;
+
+    const btn = $('#hide-btn');
+    btn.textContent = h.state === 'hardened' ? '重新加固' : '一键加固';
+  }
+
+  async function toggleHide() {
+    setProgress('加固中…', 0.5);
+    try {
+      const r = await B.setHide(true);
+      setProgress(null);
+      if (!r.ok) throw new Error(r.out || '执行失败');
+      toast('已加固 · 重启后生效');
+      await refresh(true);
+    } catch (e) {
+      setProgress(null);
+      toast('加固失败：' + (e.message || e), 'err');
+    }
+  }
+
   function renderAll() {
     renderMini();
     renderFallback();
     renderGms();
+    renderHide();
     renderSlots();
     updateStats();
     updateEnv();
@@ -309,6 +365,7 @@
       state.fallback = st.fallback || 'missing';
       state.fbVersions = st.fbVersions || state.fbVersions;
       state.gms = st.gms || state.gms;
+      state.hide = st.hide || state.hide;
       renderAll();
       if (!quiet) toast(state.mode === 'demo' ? '演示模式：操作不会写入设备' : '状态已刷新');
     } catch (e) {
@@ -553,6 +610,8 @@
     };
     bindSwitch('#fb-sw', toggleFallback);
     bindSwitch('#gms-sw', toggleGms);
+
+    $('#hide-btn').addEventListener('click', toggleHide);
 
     $('#restore-btn').addEventListener('click', async () => {
       if (!confirm('还原系统默认字体？会删除模块内所有字体文件。')) return;

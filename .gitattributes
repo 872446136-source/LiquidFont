@@ -18,6 +18,8 @@
 # 刷机脚本没有扩展名，单独点名
 customize.sh              text eol=lf
 apply.sh                  text eol=lf
+gms.sh                    text eol=lf
+hide.sh                   text eol=lf
 uninstall.sh              text eol=lf
 META-INF/com/google/android/update-binary   text eol=lf
 META-INF/com/google/android/updater-script  text eol=lf

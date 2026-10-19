@@ -29,6 +29,8 @@ LiquidFont 把「换字体」这件事做成了一件顺手的事：把 `.ttf` /
 - **Play 商店也不放过** — 停用 Google Play 服务的可下载字体链路并清缓存，
   Play 商店 / Chrome / Gmail 的英文和数字才会真正跟着换（这几家原本绕开 `system/fonts`）。
 - **安全** — 只做 overlay 挂载，删除模块即完整还原；提供一键还原与日志查看。
+- **挂载点会伪装** — 交给元模块（mountify）整体挂载，挂载点数量回到厂商水平，
+  来源目录改成看起来像 OEM 分区的名字，并清掉模块自己留下的命名痕迹。
 
 | 槽位 | 作用 | 目标文件 |
 | --- | --- | --- |
@@ -43,7 +45,7 @@ LiquidFont 把「换字体」这件事做成了一件顺手的事：把 `.ttf` /
 | 字库 | 版本 | 落点 | 作用 |
 | --- | --- | --- | --- |
 | 遍黑体 Plangothic P1 / P2 | 2.9.5795 | `PlangothicP1.ttf` `PlangothicP2.ttf` | CJK 扩展 B–J 全部汉字，顶替系统里的旧版本 |
-| GNU Unifont / Unifont Upper | 18.0.01 | `LiquidFont-Unifont.otf` `LiquidFont-UnifontUpper.otf` | 整张 Unicode 码表（含 Plane 1–16），排在兜底链最后 |
+| GNU Unifont / Unifont Upper | 18.0.01 | `SysFont-Unicode.otf` `SysFont-UnicodeExt.otf` | 整张 Unicode 码表（含 Plane 1–16），排在兜底链最后 |
 
 两个 Unifont 字族是**追加**到 `fonts.xml` 末尾的，排在所有系统字体之后——只接管前面没人认领的码位，
 不会抢走遍黑体、NotoColorEmoji 已经覆盖的字形。
@@ -83,6 +85,50 @@ LiquidFont 把「换字体」这件事做成了一件顺手的事：把 `.ttf` /
 - 不同 ColorOS 版本的字体清单略有差异，`apply.sh` 只会写设备上真实存在的文件，
   不会往模块里塞用不上的副本。
 
+## 隐藏与反检测
+
+字体模块天生要在 `/system/fonts` 上盖文件，所以「有没有挂载」这件事，检测方一般从三个地方看：
+
+| 检测点 | 怎么被发现 | 本模块的处理 |
+| --- | --- | --- |
+| 挂载点数量 | KSU 的 magic mount 给每个文件单独 bind mount，`/proc/mounts` 里条目暴涨 | 交给元模块整体 overlay，条目数回到厂商水平 |
+| 挂载来源 | magic mount 的来源是 `/data/adb/modules/<id>` | mountify 先复制到 `/mnt/vendor/<伪装名>` 再挂，来源变成厂商分区 |
+| 文件名 | `/system/fonts` 里出现带模块名的文件 | 全部沿用 OPPO 自己的 `SysFont-` / `SysSans-` 前缀 |
+
+### 推荐配置
+
+1. 装 [mountify](https://github.com/backslashxx/mountify)（KernelSU 3.0+ 必需），以**元模块**方式安装；
+2. 装一个 Zygisk 提供者（Zygisk Next / ReZygisk / NeoZygisk），把 Denylist Policy 设为
+   **Enforced** 或 **Unmount Only**——这一步才是「让指定应用看不到挂载」的关键，模块自己做不了；
+3. 打开 WebUI「更多 → 挂载隐藏」，点**一键加固**，重启。
+
+一键加固做的事（改前备份到 `/data/adb/mountify/config.sh.bak`）：
+
+- `FAKE_MOUNT_NAME` 从默认的 `mountify` 换成 `my_manifest` 之类像厂商分区的名字，
+  自动挑一个当前不存在的（撞名会让 mountify 直接退出）；
+- 有 Zygisk 提供者时才把 `MOUNT_DEVICE_NAME` 设成 `KSU` / `APatch` / `magisk`，
+  否则保持 `overlay`——没有提供者时写 `KSU` 反而更显眼；
+- tmpfs 模式打开 `test_decoy_mount`，多加一层诱饵挂载；
+- 清掉 v1.2.0 遗留的 `LiquidFont-*` 字体文件。
+
+### 一个会让字体直接失效的坑
+
+mountify 的 `mountify_copy()` 里有两段相反的判断：
+
+- **元模块模式**（元模块目录里有 `metamount.sh`）：目标模块带 `skip_mount` 会被**直接跳过挂载**，
+  表现是「模块装了、WebUI 也应用了，重启后字体一点没变」；
+- **普通模块模式**：mountify 反过来会自己 `touch skip_mount`，不用手管。
+
+所以网上那些「装完在模块目录 touch 一个 skip_mount」的教程，在元模块模式下是反向操作。
+本模块刷入时会检查并清掉残留的 `skip_mount`，`hide.sh status` 会把它标成 `hide.skip=stale`。
+
+### 还剩什么藏不住
+
+- **字体内部的名字**：Unifont 的 `name` 表里写的还是 `Unifont`。要改得重写整张 `name` 表，
+  收益很低（几乎没人扫这个），风险不小，没做。
+- **`/data/adb` 目录**：没有 root 读不到，不构成暴露面。
+- **不装 Zygisk 提供者**：挂载对**所有**应用可见。按应用卸载是 Zygisk 层的能力，模块替代不了。
+
 ## 目录结构
 
 ```
@@ -91,6 +137,7 @@ LiquidFont/
 ├── customize.sh                # 刷入脚本：环境检查 / 继承旧字体 / 补齐派生 XML
 ├── apply.sh                    # 应用脚本：五槽位 → system/fonts（WebUI 也调用它）
 ├── gms.sh                      # Play 商店字体接管：停用 GMS 字体服务 + 清缓存
+├── hide.sh                     # 挂载隐藏：元模块配置加固 + 命名痕迹清理
 ├── uninstall.sh                # 卸载清理
 ├── FONTS/                      # 槽位目录（hans/hant/en/mono/emoji.ttf）
 ├── FALLBACK/                   # 内置全字库（遍黑体 / Unifont + 各自许可证）

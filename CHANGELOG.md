@@ -1,5 +1,23 @@
 # 更新日志
 
+## v1.3.0
+
+把挂载痕迹藏起来。
+
+- 新增「挂载隐藏」卡片：检测元模块（mountify）是否以元模块方式安装、当前伪装挂载点、
+  Zygisk 提供者与旧命名残留，一键把配置调成推荐值（改前自动备份 `config.sh.bak`）
+- 把 mountify 的 `FAKE_MOUNT_NAME` 从默认的 `mountify` 换成看起来像厂商分区的名字
+  （自动挑一个当前不存在的，撞名会让 mountify 直接退出）
+- 只有检测到 Zygisk 提供者时才把 `MOUNT_DEVICE_NAME` 设成 `KSU` / `APatch` / `magisk`；
+  没有提供者时保持 `overlay`——否则 `/proc/mounts` 里直接写着 `KSU`，比默认值更显眼
+- tmpfs 模式额外打开 `test_decoy_mount`，给挂载加一层诱饵
+- **修正一个会让字体直接失效的坑**：元模块模式下模块目录里若有 `skip_mount`，
+  mountify 会跳过整个模块；刷入时自动清除，加固时也会检查
+- `system/fonts/` 下的 `LiquidFont-Unifont*.otf` 改名为 `SysFont-Unicode*.otf` /
+  `SysFont-UnicodeExt.otf`，沿用 OPPO 自己的 `SysFont-` 前缀
+- 应用字体与刷入时自动清除 v1.2.0 遗留的 `LiquidFont-*` 文件
+- 新增 `hide.sh`，支持 `status` / `apply` / `restore` / `auto`
+
 ## v1.2.0
 
 Play 商店的英文和数字也能跟着换了。
