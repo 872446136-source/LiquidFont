@@ -271,16 +271,22 @@
   }
 
   async function toggleFallback() {
-    const on = $('#fb-sw').getAttribute('aria-checked') !== 'true';
-    $('#fb-sw').setAttribute('aria-checked', on ? 'true' : 'false');
+    const sw = $('#fb-sw');
+    const on = sw.getAttribute('aria-checked') !== 'true';
+    sw.setAttribute('aria-checked', on ? 'true' : 'false');
+    sw.disabled = true;
     try {
       const r = await B.setFallback(on);
       if (!r.ok) throw new Error(r.out || '写入失败');
+      // 只是建/删一个标记文件，没必要再跑一遍 status（那里面有一次 pm dump）
+      state.fallback = on ? 'idle' : 'off';
+      renderFallback();
       toast(on ? '已开启全字库兜底，记得应用字体' : '已关闭全字库兜底');
-      await refresh(true);
     } catch (e) {
-      $('#fb-sw').setAttribute('aria-checked', on ? 'false' : 'true');
+      sw.setAttribute('aria-checked', on ? 'false' : 'true');
       toast('切换失败：' + (e.message || e), 'err');
+    } finally {
+      sw.disabled = false;
     }
   }
 
@@ -308,19 +314,21 @@
   }
 
   async function toggleGms() {
-    const on = $('#gms-sw').getAttribute('aria-checked') !== 'true';
-    $('#gms-sw').setAttribute('aria-checked', on ? 'true' : 'false');
-    setProgress(on ? '接管中…' : '恢复中…', 0.45);
+    const sw = $('#gms-sw');
+    const on = sw.getAttribute('aria-checked') !== 'true';
+    sw.setAttribute('aria-checked', on ? 'true' : 'false');
+    sw.disabled = true;
     try {
       const r = await B.setGms(on);
-      setProgress(null);
       if (!r.ok) throw new Error(r.out || '执行失败');
+      state.gms = { flag: on ? 'on' : 'off', state: on ? 'taken' : 'normal' };
+      renderGms();
       toast(on ? '已接管 Play 商店字体' : '已恢复 GMS 字体服务');
-      await refresh(true);
     } catch (e) {
-      setProgress(null);
-      $('#gms-sw').setAttribute('aria-checked', on ? 'false' : 'true');
+      sw.setAttribute('aria-checked', on ? 'false' : 'true');
       toast('切换失败：' + (e.message || e), 'err');
+    } finally {
+      sw.disabled = false;
     }
   }
 
@@ -365,16 +373,22 @@
   }
 
   async function toggleHide() {
-    setProgress('加固中…', 0.5);
+    const btn = $('#hide-btn');
+    btn.disabled = true;
     try {
       const r = await B.setHide(true);
-      setProgress(null);
       if (!r.ok) throw new Error(r.out || '执行失败');
+      // hide.sh 会把新名字打在输出里：FAKE_MOUNT_NAME: mountify → my_manifest
+      const m = /FAKE_MOUNT_NAME:[^\n]*→\s*(\S+)/.exec(r.out || '');
+      if (m) state.hide.fake = m[1];
+      state.hide.state = 'hardened';
+      state.hide.legacy = 0;
+      renderHide();
       toast('已加固 · 重启后生效');
-      await refresh(true);
     } catch (e) {
-      setProgress(null);
       toast('加固失败：' + (e.message || e), 'err');
+    } finally {
+      btn.disabled = false;
     }
   }
 

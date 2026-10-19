@@ -14,6 +14,9 @@
 
   // 单次 argv 上限 128KB，base64 后膨胀 4/3，取 64KB 原始数据留足余量
   const CHUNK = 64 * 1024;
+  // 并发写入的通道数。每个通道一次 exec（一个 root shell），6 路在手机上
+  // 既能压满 IO 又不会把系统拖垮。
+  const CONCURRENCY = 6;
   const READ_CHUNK = 64 * 1024;
   // 预览要把整份字体读进内存再交给 FontFace，超过这个大小就没必要了
   const MAX_PREVIEW_BYTES = 64 * 1024 * 1024;
@@ -270,6 +273,21 @@
   }
 
   /* ───────── 写入字体 ───────── */
+  // 串行追加：最笨但最兼容，只在 dd 方案校验不过时兜底
+  async function writeSequential(path, buf, onProgress) {
+    await exec(`: > '${path}'`);
+    let sent = 0;
+    for (let i = 0; i < buf.length; i += CHUNK) {
+      const b64 = bytesToB64(buf.subarray(i, i + CHUNK));
+      const r = await exec(`printf %s '${b64}' | base64 -d >> '${path}'`);
+      if (r.code !== 0) return false;
+      sent += Math.min(CHUNK, buf.length - i);
+      onProgress && onProgress(sent / buf.length);
+    }
+    const chk = await exec(`wc -c < '${path}'`);
+    return parseInt(chk.out.trim(), 10) === buf.length;
+  }
+
   // preloaded：调用方已经读好的 ArrayBuffer。大字体再读一遍就是多占一份内存，
   // 传进来就直接用（new Uint8Array(ab) 是视图，不复制）。
   async function write(slot, file, onProgress, preloaded) {
@@ -292,18 +310,42 @@
     }
 
     const buf = preloaded ? new Uint8Array(preloaded) : new Uint8Array(await file.arrayBuffer());
-    let sent = 0;
-    for (let i = 0; i < buf.length; i += CHUNK) {
-      const b64 = bytesToB64(buf.subarray(i, i + CHUNK));
-      const r = await exec(`printf %s '${b64}' | base64 -d >> '${path}'`);
-      if (r.code !== 0) throw new Error('写入失败：' + (r.err || 'base64 解码错误'));
-      sent += Math.min(CHUNK, buf.length - i);
-      onProgress && onProgress(sent / buf.length);
+
+    // 写入策略：每块 64KB → base64 → dd 直接写到目标文件的对应偏移（conv=notrunc）。
+    // 块与块不重叠，所以能并发。瓶颈从来不是 base64，而是每次 exec 都要新建一个
+    // root shell：串行 320 次就是几十秒，并发 6 路能压到几秒。
+    const n = Math.ceil(buf.length / CHUNK);
+    let cursor = 0, done = 0, failed = null;
+
+    async function worker() {
+      for (;;) {
+        const i = cursor++;
+        if (i >= n || failed) return;
+        const off = i * CHUNK;
+        const b64 = bytesToB64(buf.subarray(off, Math.min(off + CHUNK, buf.length)));
+        const r = await exec(
+          `printf %s '${b64}' | base64 -d | dd of='${path}' bs=${CHUNK} seek=${i} conv=notrunc 2>/dev/null`
+        );
+        if (r.code !== 0) {
+          failed = r;
+          return;
+        }
+        done++;
+        onProgress && onProgress(done / n);
+      }
     }
 
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, n) }, worker));
+
+    // 校验字节数；dd 方案不成立（老 toybox / 权限）就退回串行追加。
+    // 注意 failed 也要算失败：中间某块写挂了、但最后一块写成功时，
+    // 文件长度照样对得上，只是中间有个洞——只比长度会漏掉这种情况。
     const chk = await exec(`wc -c < '${path}'`);
     const got = parseInt(chk.out.trim(), 10);
-    if (!got || got !== buf.length) throw new Error(`校验失败（${got || 0}/${buf.length} 字节）`);
+    if (failed || !got || got !== buf.length) {
+      const ok = await writeSequential(path, buf, onProgress);
+      if (!ok) throw new Error(`写入失败（${got || 0}/${buf.length} 字节）`);
+    }
     await exec(`chmod 0644 '${path}'`);
   }
 
@@ -376,7 +418,8 @@
     }
     const r = await exec(`sh ${MODDIR}/gms.sh ${on ? 'on' : 'off'}`, 120000);
     const out = (r.out || r.err || '').trim();
-    return { ok: r.code === 0 && !/\[✗\]/.test(out), out };
+    // gms.sh 失败时返回码不一定是非 0，得看输出里的标记
+    return { ok: r.code === 0 && !/\[✗\]|失败/.test(out), out };
   }
 
   /* ───────── 挂载隐藏 ───────── */
@@ -389,7 +432,7 @@
     }
     const r = await exec(`sh ${MODDIR}/hide.sh ${on ? 'apply' : 'restore'}`, 60000);
     const out = (r.out || r.err || '').trim();
-    return { ok: r.code === 0, out };
+    return { ok: r.code === 0 && !/\[✗\]|失败/.test(out), out };
   }
 
   /* ───────── 应用 / 还原 ───────── */

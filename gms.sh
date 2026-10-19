@@ -40,7 +40,8 @@ list_users() {
 
 have_gms() {
     [ -n "$PM" ] || return 1
-    "$PM" list packages 2>/dev/null | grep -q "^package:${PKG}$"
+    # 带包名过滤的查询比列全量再 grep 快得多
+    "$PM" list packages "$PKG" 2>/dev/null | grep -q "^package:${PKG}$"
 }
 
 # ---------- 状态 ----------
@@ -56,9 +57,16 @@ print_status() {
         return 0
     fi
 
-    # 以系统里的实际状态为准，不只看标记文件
+    # 没开过接管就别去 dump：pm dump 一次要 2~4 秒，而「没开过」是绝大多数情况。
+    # WebUI 每次刷新都会调 status，这里省掉的就是每次开面板的等待。
+    if [ ! -f "$FLAG" ]; then
+        echo "gms.state=normal"
+        return 0
+    fi
+
+    # 开过接管才以系统里的实际状态为准，不只看标记文件
     if command -v timeout >/dev/null 2>&1; then
-        taken="$(timeout 4 "$PM" dump "$PKG" 2>/dev/null \
+        taken="$(timeout 3 "$PM" dump "$PKG" 2>/dev/null \
             | grep -A12 "fonts.provider.FontsProvider" \
             | grep -ciE "disabled=true|DISABLED")"
     else
