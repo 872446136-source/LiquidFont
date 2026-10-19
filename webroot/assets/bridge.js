@@ -14,7 +14,9 @@
 
   // 单次 argv 上限 128KB，base64 后膨胀 4/3，取 64KB 原始数据留足余量
   const CHUNK = 64 * 1024;
-  const READ_CHUNK = 48 * 1024;
+  const READ_CHUNK = 64 * 1024;
+  // 预览要把整份字体读进内存再交给 FontFace，超过这个大小就没必要了
+  const MAX_PREVIEW_BYTES = 64 * 1024 * 1024;
 
   const demoStore = new Map(); // slot -> { file, info }
 
@@ -150,7 +152,9 @@
   }
 
   /* ───────── 写入字体 ───────── */
-  async function write(slot, file, onProgress) {
+  // preloaded：调用方已经读好的 ArrayBuffer。大字体再读一遍就是多占一份内存，
+  // 传进来就直接用（new Uint8Array(ab) 是视图，不复制）。
+  async function write(slot, file, onProgress, preloaded) {
     if (!KSU) {
       const meta = readDemoMeta();
       meta[slot] = { name: file.name, size: file.size, at: Date.now() };
@@ -165,7 +169,7 @@
     const created = await exec(`: > '${path}'`);
     if (created.code !== 0) throw new Error('无法创建文件：' + (created.err || created.code));
 
-    const buf = new Uint8Array(await file.arrayBuffer());
+    const buf = preloaded ? new Uint8Array(preloaded) : new Uint8Array(await file.arrayBuffer());
     let sent = 0;
     for (let i = 0; i < buf.length; i += CHUNK) {
       const b64 = bytesToB64(buf.subarray(i, i + CHUNK));
@@ -192,7 +196,9 @@
     const sizeR = await exec(`wc -c < '${path}' 2>/dev/null`);
     const size = parseInt(sizeR.out.trim(), 10);
     if (!size) throw new Error('文件不存在');
-    if (size > 40 * 1024 * 1024) throw new Error('字体过大，无法预览');
+    if (size > MAX_PREVIEW_BYTES) {
+      throw new Error(`字体 ${(size / 1048576).toFixed(0)}MB，超过预览上限 64MB（不影响已保存的字体和应用）`);
+    }
 
     const parts = [];
     for (let off = 0; off < size; off += READ_CHUNK) {

@@ -23,6 +23,11 @@
     num: '0123456789 · ￥1,234.56 · 3.1415926 · 09:41'
   };
 
+  // 单文件上限：128MB。再大 base64 分块写入要几分钟，系统加载也吃不消。
+  // 超过 64MB 就跳过预览（FontFace 会把 WebView 卡住），但不阻止写入。
+  const MAX_FONT_BYTES = 128 * 1024 * 1024;
+  const BIG_FONT_BYTES = 64 * 1024 * 1024;
+
   const state = {
     fallback: 'idle',
     fbVersions: { plangothic: '', unifont: '' },
@@ -41,6 +46,11 @@
 
   /* ───────────────────── 小工具 ───────────────────── */
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  // Uint8Array → ArrayBuffer：整段占满时直接复用，不做复制
+  const viewOf = (bytes) => (bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength)
+    ? bytes.buffer
+    : bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
 
   function fmtSize(bytes) {
     if (!bytes) return '0 B';
@@ -374,10 +384,15 @@
   }
 
   /* ───────────────────── 字体预览 ───────────────────── */
-  async function loadFace(slot, bytes) {
+  // data 可以是 ArrayBuffer，也可以是 Uint8Array（readBytes 返回的）。
+  // 直接传 ArrayBuffer 时不做 slice 复制——几十 MB 的字体复制一次就是几十 MB 内存。
+  async function loadFace(slot, data) {
     const family = 'LF-' + slot;
     try {
-      const face = new FontFace(family, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+      const src = data instanceof ArrayBuffer
+        ? data
+        : data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+      const face = new FontFace(family, src);
       await face.load();
       document.fonts.add(face);
       state.faces[slot] = family;
@@ -401,7 +416,7 @@
       const bytes = await B.readBytes('hans');
       const family = await loadFace('hans', bytes);
       if (family) {
-        const info = window.FontInfo.parse(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+        const info = window.FontInfo.parse(viewOf(bytes));
         if (info) state.meta.hans = info;
       }
       applyPreviewFont();
@@ -461,23 +476,28 @@
       toast('只支持 .ttf / .otf', 'err');
       return;
     }
-    if (file.size > 48 * 1024 * 1024) {
-      toast('文件超过 48MB', 'err');
+    if (file.size > MAX_FONT_BYTES) {
+      toast(`文件 ${fmtSize(file.size)}，超过 ${MAX_FONT_BYTES / 1048576}MB 上限`, 'err');
       return;
     }
+    const big = file.size > BIG_FONT_BYTES;
 
+    // 整份读一次就够了：解析元信息、写盘、做预览都复用这份 buffer，
+    // 不再 slice / 再读一遍——大字体上这几份复制加起来就是几百 MB。
     const buf = await file.arrayBuffer();
-    const info = window.FontInfo.parse(buf.slice(0));
+    const info = window.FontInfo.parse(buf);
     if (info) state.meta[slot] = info;
 
     setProgress('写入 ' + file.name, 0);
     try {
-      await B.write(slot, file, (p) => setProgress('写入 ' + file.name, p));
-      const family = await loadFace(slot, new Uint8Array(buf));
+      await B.write(slot, file, (p) => setProgress('写入 ' + file.name, p), buf);
+      // 超大字体加载进 FontFace 会把 WebView 卡住几秒，预览直接跳过，不影响应用
+      const family = big ? null : await loadFace(slot, buf);
       state.slots[slot] = { set: true, size: file.size };
       renderAll();
       setProgress(null);
       toast(`${SLOTS.find((s) => s.id === slot).name} 已就绪 · 记得点「应用字体」`);
+      if (big) setTimeout(() => toast('字体较大，已跳过预览（不影响应用）'), 1400);
       if (slot === 'hans') applyPreviewFont();
       if (info && slot === 'en' && info.coverage.cjk > 200) {
         setTimeout(() => toast('这个西文字体带汉字，可能盖掉中文（可在 apply.sh 里启用裁切）', 'err'), 1400);
@@ -674,7 +694,7 @@
     try {
       const bytes = await B.readBytes(slot, (p) => setProgress('读取字体…', p));
       const family = await loadFace(slot, bytes);
-      const info = window.FontInfo.parse(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+      const info = window.FontInfo.parse(viewOf(bytes));
       if (info) state.meta[slot] = info;
       setProgress(null);
       renderAll();
