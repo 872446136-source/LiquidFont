@@ -26,6 +26,7 @@
   const state = {
     fallback: 'idle',
     fbVersions: { plangothic: '', unifont: '' },
+    gms: { flag: 'off', state: 'missing' },
     mode: B.MODE,
     slots: {},
     meta: {},
@@ -248,9 +249,50 @@
     }
   }
 
+  function renderGms() {
+    const sw = $('#gms-sw');
+    if (!sw) return;
+    const g = state.gms || { flag: 'off', state: 'missing' };
+    const on = g.flag === 'on';
+    const missing = g.state === 'missing';
+
+    sw.setAttribute('aria-checked', on ? 'true' : 'false');
+    sw.disabled = missing;
+
+    let text;
+    if (missing) {
+      text = '未检测到 Google Play 服务';
+    } else if (on && g.state === 'taken') {
+      text = '已接管 · Play 商店 / Chrome / Gmail 已改用系统字体';
+    } else if (on) {
+      text = '已开启，但系统里仍是正常状态（可能被系统重置，重新切一次即可）';
+    } else {
+      text = '未接管 · 这些应用仍使用 Google 自己的字体';
+    }
+    $('#gms-state').textContent = text;
+  }
+
+  async function toggleGms() {
+    const on = $('#gms-sw').getAttribute('aria-checked') !== 'true';
+    $('#gms-sw').setAttribute('aria-checked', on ? 'true' : 'false');
+    setProgress(on ? '接管中…' : '恢复中…', 0.45);
+    try {
+      const r = await B.setGms(on);
+      setProgress(null);
+      if (!r.ok) throw new Error(r.out || '执行失败');
+      toast(on ? '已接管 Play 商店字体' : '已恢复 GMS 字体服务');
+      await refresh(true);
+    } catch (e) {
+      setProgress(null);
+      $('#gms-sw').setAttribute('aria-checked', on ? 'false' : 'true');
+      toast('切换失败：' + (e.message || e), 'err');
+    }
+  }
+
   function renderAll() {
     renderMini();
     renderFallback();
+    renderGms();
     renderSlots();
     updateStats();
     updateEnv();
@@ -266,6 +308,7 @@
       state.rom = st.rom || '';
       state.fallback = st.fallback || 'missing';
       state.fbVersions = st.fbVersions || state.fbVersions;
+      state.gms = st.gms || state.gms;
       renderAll();
       if (!quiet) toast(state.mode === 'demo' ? '演示模式：操作不会写入设备' : '状态已刷新');
     } catch (e) {
@@ -497,16 +540,19 @@
       box.textContent = await B.lastLog();
     });
 
-    const fbSw = $('#fb-sw');
-    if (fbSw) {
-      fbSw.addEventListener('click', toggleFallback);
-      fbSw.addEventListener('keydown', (e) => {
+    const bindSwitch = (sel, fn) => {
+      const el = $(sel);
+      if (!el) return;
+      el.addEventListener('click', fn);
+      el.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          toggleFallback();
+          fn();
         }
       });
-    }
+    };
+    bindSwitch('#fb-sw', toggleFallback);
+    bindSwitch('#gms-sw', toggleGms);
 
     $('#restore-btn').addEventListener('click', async () => {
       if (!confirm('还原系统默认字体？会删除模块内所有字体文件。')) return;

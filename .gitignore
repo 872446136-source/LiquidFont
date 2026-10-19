@@ -8,3 +8,6 @@ node_modules/
 
 # 下载缓存（字体源文件，不入库）
 .dl/
+
+# 运行时状态（GMS 开关标记等）
+CONFIG/

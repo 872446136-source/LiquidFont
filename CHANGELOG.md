@@ -1,5 +1,17 @@
 # 更新日志
 
+## v1.2.0
+
+Play 商店的英文和数字也能跟着换了。
+
+- 新增「Play 商店字体接管」开关：停用 Google Play 服务的 `FontsProvider` 与
+  `UpdateSchedulerService`，并清掉已下载的字体缓存，让 Play 商店 / Chrome / Gmail
+  的英文与数字回落到系统字体（这几家的可下载字体原本绕开 `system/fonts`）
+- 只清已知的字体缓存路径，不做 `find /data` 全盘扫描
+- 开关状态以系统里组件的真实状态为准，不只信标记文件
+- 卸载模块时自动把 GMS 字体服务放回去，不会留下被停用的组件
+- 新增 `gms.sh`，支持 `status` / `on` / `off`
+
 ## v1.1.0
 
 内置全字库，生僻字不再缺字。

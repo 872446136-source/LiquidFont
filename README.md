@@ -26,6 +26,8 @@ LiquidFont 把「换字体」这件事做成了一件顺手的事：把 `.ttf` /
   新增的 `OPSans-En`，避免某些界面英文没换干净。
 - **内置全字库兜底** — 打包了遍黑体（CJK 扩展 B–J 全汉字）与 GNU Unifont 18.0.01
   （整张 Unicode 码表），主字体没覆盖的生僻字、冷门文字不会再变成豆腐块；可在 WebUI 里一键关掉。
+- **Play 商店也不放过** — 停用 Google Play 服务的可下载字体链路并清缓存，
+  Play 商店 / Chrome / Gmail 的英文和数字才会真正跟着换（这几家原本绕开 `system/fonts`）。
 - **安全** — 只做 overlay 挂载，删除模块即完整还原；提供一键还原与日志查看。
 
 | 槽位 | 作用 | 目标文件 |
@@ -71,6 +73,10 @@ LiquidFont 把「换字体」这件事做成了一件顺手的事：把 `.ttf` /
 - 应用字体后必须**重启**，字体是开机时被系统读进缓存的。
 - 全字库兜底默认开启。关掉后重启即恢复系统原样；它不会覆盖你自己选的五槽位字体，
   只影响主字体没覆盖到的字符。
+- **Play 商店 / Chrome / Gmail 的英文数字没变？** 这几家的字体走 Google Play 服务的
+  「可下载字体」，绕开 `system/fonts`，所以换系统字体对它们无效。去「更多」页打开
+  **Play 商店字体接管**：它会停用 `FontsProvider` 与 `UpdateSchedulerService`、
+  清掉已下载的字体缓存，然后重启相关应用即可。默认关闭，需要时再开。
 - 不同 ColorOS 版本的字体清单略有差异，`apply.sh` 只会写设备上真实存在的文件，
   不会往模块里塞用不上的副本。
 
@@ -81,6 +87,7 @@ LiquidFont/
 ├── module.prop                 # 模块信息
 ├── customize.sh                # 刷入脚本：环境检查 / 继承旧字体 / 补齐派生 XML
 ├── apply.sh                    # 应用脚本：五槽位 → system/fonts（WebUI 也调用它）
+├── gms.sh                      # Play 商店字体接管：停用 GMS 字体服务 + 清缓存
 ├── uninstall.sh                # 卸载清理
 ├── FONTS/                      # 槽位目录（hans/hant/en/mono/emoji.ttf）
 ├── FALLBACK/                   # 内置全字库（遍黑体 / Unifont + 各自许可证）
@@ -116,6 +123,9 @@ python build.py --no-zip   # 只做检查
 - **全字库为什么要改 fonts.xml**：Unifont 是全新字库，系统里没有它的位置，只能在 `familyset`
   末尾追加两个字族。追加在最后是刻意的——Android 按声明顺序找字，排最后意味着只有前面
   所有字体都不认识的码位才会轮到它，属于纯增量，不会改变已有字形的渲染。
+- **为什么 Play 商店要单独处理**：GMS 的 `FontsProvider` 通过 Downloadable Fonts 直接把
+  字体喂给应用，进程里的字体上下文和系统字体是两套。所以光改 `system/fonts` 没用，
+  必须把这个提供器停掉，再清掉 `/data/fonts` 等缓存，应用才会回落到系统字体。
 - **WebUI 怎么把文件写进去**：KernelSU 只给了 `ksu.exec`，没有文件 API。所以前端把字体
   base64 分块（64 KB/块，避开 argv 128 KB 上限）用 `printf | base64 -d >>` 追加写，
   最后用 `wc -c` 校验字节数，不一致就报错。
@@ -126,6 +136,8 @@ python build.py --no-zip   # 只做检查
   可能读不到字体而回退默认字体（FontMM 用原生 warmUpCache 解决，本模块暂未实现）。
 - 不做可变字体 `wght` 轴重写。字体自带的字重轴如果与系统的 100–900 对不上，
   表现是粗细层次不自然，需要在字体侧处理。
+- 开启「Play 商店字体接管」后，依赖 Google 可下载字体的应用会回落到系统字体；
+  少数把字体当资源的应用可能需要重新打开一次。关掉开关即可恢复原状。
 
 ## 致谢
 

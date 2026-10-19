@@ -173,6 +173,19 @@ Liquid Glass 0123456789
       </div>
 
       <div class="card glass ring reveal" style="--i:3">
+        <div class="card-head">
+          <h3 class="card-title">Play 商店字体接管</h3>
+          <button class="sw" id="gms-sw" role="switch" aria-checked="false" aria-label="Play 商店字体接管"><i></i></button>
+        </div>
+        <p class="hint">
+          Play 商店、Chrome、Gmail 的英文和数字走 Google Play 服务的「可下载字体」，
+          这条链路绕开系统字体。开启后会停用该服务并清掉已下载的字体缓存，
+          让它们也用你选的字体。
+        </p>
+        <p class="hint dim" id="gms-state">—</p>
+      </div>
+
+      <div class="card glass ring reveal" style="--i:4">
         <h3 class="card-title">操作</h3>
         <div class="stack">
           <button class="btn ghost wide" id="log-btn">查看最近一次应用日志</button>
@@ -180,16 +193,16 @@ Liquid Glass 0123456789
         </div>
       </div>
 
-      <pre class="log glass ring reveal" id="log-box" style="--i:4" hidden></pre>
+      <pre class="log glass ring reveal" id="log-box" style="--i:5" hidden></pre>
 
-      <div class="card glass ring reveal" style="--i:5">
+      <div class="card glass ring reveal" style="--i:6">
         <h3 class="card-title">关于</h3>
         <p class="about">
           <b>LiquidFont</b> 是一个面向 ColorOS 16 / 17 的字体替换模块，
           内置五槽位配置、全液态玻璃 WebUI，以及遍黑体 / GNU Unifont 两套开源全字库兜底。
         </p>
         <dl class="kv">
-          <div><dt>版本</dt><dd id="about-ver">1.1.0</dd></div>
+          <div><dt>版本</dt><dd id="about-ver">1.2.0</dd></div>
           <div><dt>字体配置</dt><dd>ColorOS 17 (fonts.xml / base / ule)</dd></div>
           <div><dt>许可</dt><dd>GPL-3.0</dd></div>
         </dl>

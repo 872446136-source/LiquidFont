@@ -20,6 +20,7 @@ INCLUDE = [
     "module.prop",
     "customize.sh",
     "apply.sh",
+    "gms.sh",
     "uninstall.sh",
     "META-INF",
     "system",

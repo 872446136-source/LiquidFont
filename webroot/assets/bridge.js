@@ -92,7 +92,11 @@
         applied: Object.values(slots).some((s) => s.set),
         rom: '演示模式 · 未连接设备',
         fallback: fbOn ? 'idle' : 'off',
-        fbVersions: { plangothic: '2.9.5795', unifont: '18.0.01' }
+        fbVersions: { plangothic: '2.9.5795', unifont: '18.0.01' },
+        gms: (() => {
+          const on = localStorage.getItem('lf.gms') === 'on';
+          return { flag: on ? 'on' : 'off', state: on ? 'taken' : 'normal' };
+        })()
       };
     }
 
@@ -100,12 +104,15 @@
       `if [ -d ${MODDIR} ]; then sh ${MODDIR}/apply.sh --status 2>/dev/null; ` +
       `else echo "missing=1"; fi; ` +
       `echo "@rom=$(getprop ro.build.version.oplusrom.display 2>/dev/null)"; ` +
-      `echo "@api=$(getprop ro.build.version.oplus.api 2>/dev/null)"`;
+      `echo "@api=$(getprop ro.build.version.oplus.api 2>/dev/null)"; ` +
+      `if [ -f ${MODDIR}/gms.sh ]; then sh ${MODDIR}/gms.sh status 2>/dev/null; ` +
+      `else echo "gms.state=missing"; fi`;
     const r = await exec(cmd);
     const slots = {};
     ['hans', 'hant', 'en', 'mono', 'emoji'].forEach((s) => (slots[s] = { set: false, size: 0 }));
     let applied = false, rom = '', missing = false, fallback = 'missing';
     const fbVersions = { plangothic: '', unifont: '' };
+    const gms = { flag: 'off', state: 'missing' };
     r.out.split('\n').forEach((line) => {
       const t = line.trim();
       if (!t) return;
@@ -115,13 +122,15 @@
       if (t.startsWith('fallback=')) return void (fallback = t.slice(9));
       if (t.startsWith('fb.plangothic_version=')) return void (fbVersions.plangothic = t.slice(22));
       if (t.startsWith('fb.unifont_version=')) return void (fbVersions.unifont = t.slice(19));
+      if (t.startsWith('gms.flag=')) return void (gms.flag = t.slice(9));
+      if (t.startsWith('gms.state=')) return void (gms.state = t.slice(10));
       const m = /^slot\.(\w+)=(set|empty)$/.exec(t);
       if (m) return void (slots[m[1]] = slots[m[1]] || { set: false, size: 0 }, (slots[m[1]].set = m[2] === 'set'));
       const n = /^size\.(\w+)=(\d+)$/.exec(t);
       if (n) return void (slots[n[1]] && (slots[n[1]].size = +n[2]));
       if (t === 'applied=1') applied = true;
     });
-    return { mode: missing ? 'missing' : 'native', slots, applied, rom, fallback, fbVersions, raw: r.out };
+    return { mode: missing ? 'missing' : 'native', slots, applied, rom, fallback, fbVersions, gms, raw: r.out };
   }
 
   /* ───────── 写入字体 ───────── */
@@ -213,6 +222,19 @@
     return { ok: r.code === 0, out: r.out || r.err || '' };
   }
 
+  /* ───────── Play 商店字体接管 ───────── */
+  // on  = 停用 GMS 的 FontsProvider / UpdateSchedulerService 并清字体缓存
+  // off = 重新启用（组件状态存在 package manager 里，重启不会丢）
+  async function setGms(on) {
+    if (!KSU) {
+      try { localStorage.setItem('lf.gms', on ? 'on' : 'off'); } catch (e) { /* ignore */ }
+      return { ok: true, out: '' };
+    }
+    const r = await exec(`sh ${MODDIR}/gms.sh ${on ? 'on' : 'off'}`, 120000);
+    const out = (r.out || r.err || '').trim();
+    return { ok: r.code === 0 && !/\[✗\]/.test(out), out };
+  }
+
   /* ───────── 应用 / 还原 ───────── */
   async function apply() {
     if (!KSU) {
@@ -247,7 +269,7 @@
   }
 
   global.LF = {
-    bridge: { MODE, MODDIR, status, write, readBytes, clear, clearAll, apply, lastLog, restore, setFallback, exec, toast },
+    bridge: { MODE, MODDIR, status, write, readBytes, clear, clearAll, apply, lastLog, restore, setFallback, setGms, exec, toast },
     bytesToB64,
     b64ToBytes
   };
