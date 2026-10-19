@@ -22,6 +22,7 @@ MODDIR="${MODDIR:-/data/adb/modules/LiquidFont}"
 
 MODID="LiquidFont"
 MOUNTIFY_DIR="/data/adb/mountify"
+MMRS_DIR="/data/adb/magic_mount"
 # 持久状态目录（GMS 接管标记等）。放在模块目录之外，刷版本不会丢，
 # 卸载时必须一起清掉，否则就是残留。
 LF_STATE="/data/adb/LiquidFont"
@@ -70,9 +71,9 @@ elif [ -f "$LF_STATE/gms-takeover" ] || [ -f "$MODDIR/CONFIG/gms-takeover" ]; th
 fi
 
 # ---------- 2. 元模块配置 ----------
-# hide.sh 加固前会备份成 config.sh.bak。卸载时还原成加固前的样子，
-# 再把备份删掉——不然 /data/adb/mountify 里就多了一个我们写的文件。
-for c in "$MOUNTIFY_DIR/config.sh" /data/adb/modules/mountify/config.sh; do
+# hide.sh 加固前会备份成 <配置>.bak。卸载时还原成加固前的样子，
+# 再把备份删掉——不然元模块目录里就多了一个我们写的文件。
+for c in "$MMRS_DIR/config.toml" "$MOUNTIFY_DIR/config.sh" /data/adb/modules/mountify/config.sh; do
     [ -f "$c.bak" ] || continue
     if cp -f "$c.bak" "$c" 2>/dev/null; then
         ok "已还原 ${c}（加固前的配置）"
@@ -83,6 +84,7 @@ for c in "$MOUNTIFY_DIR/config.sh" /data/adb/modules/mountify/config.sh; do
 done
 
 # ---------- 3. mountify 的挂载记录 ----------
+# （MMRS 不留这类记录，它的 scan.ret / umount.list 是每次开机重写的）
 # 非元模块模式下 mountify 会把挂上的模块 id 追加到 skipped_modules，
 # 留着就是一行 "LiquidFont"。
 SM="$MOUNTIFY_DIR/skipped_modules"

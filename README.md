@@ -32,8 +32,8 @@ LiquidFont 把「换字体」这件事做成了一件顺手的事：把 `.ttf` /
   以及 Unihan / Unicode 两种口径的覆盖率实测；覆盖率逐字比对渲染结果，
   和 `Paint.hasGlyph` 一样走整条系统兜底链，不是读某个字体文件的 cmap。
 - **安全** — 只做 overlay 挂载，卸载时连 GMS 组件、元模块配置、挂载记录一起清干净；提供一键还原与日志查看。
-- **挂载点会伪装** — 交给元模块（mountify）整体挂载，挂载点数量回到厂商水平，
-  来源目录改成看起来像 OEM 分区的名字，并清掉模块自己留下的命名痕迹。
+- **挂载痕迹会藏** — 交给 Meta-Magic-Mount-RS 按目录合并挂载，挂载点数量回到厂商水平；
+  加固后挂载来源伪装成 `tmpfs`，并把每个挂载点登记给 KSU 驱动，屏蔽应用时才真的看不到。
 
 | 槽位 | 作用 | 目标文件 |
 | --- | --- | --- |
@@ -88,7 +88,7 @@ LiquidFont 把「换字体」这件事做成了一件顺手的事：把 `.ttf` /
 ### 环境要求
 
 - ColorOS 16 / 17（其它系统能装，但 fonts.xml 的字族可能对不上，会出现缺字）
-- Magisk 20.4+ / KernelSU（KernelSU 3.0+ 需要元模块：mountify / hybrid_mount）
+- Magisk 20.4+ / KernelSU / APatch（KernelSU 3.0+ 需要元模块，推荐 Meta-Magic-Mount-RS）
 - 字体格式：`.ttf` / `.otf`，单个文件上限 **128 MB**；超过 64 MB 会跳过预览（不影响写入与应用）
 
 ## 使用说明
@@ -113,37 +113,43 @@ LiquidFont 把「换字体」这件事做成了一件顺手的事：把 `.ttf` /
 
 ## 隐藏与反检测
 
-字体模块天生要在 `/system/fonts` 上盖文件，所以「有没有挂载」这件事，检测方一般从三个地方看：
+字体模块天生要在 `/system/fonts` 上盖文件，所以「有没有挂载」这件事，检测方一般从这几个地方看：
 
 | 检测点 | 怎么被发现 | 本模块的处理 |
 | --- | --- | --- |
-| 挂载点数量 | KSU 的 magic mount 给每个文件单独 bind mount，`/proc/mounts` 里条目暴涨 | 交给元模块整体 overlay，条目数回到厂商水平 |
-| 挂载来源 | magic mount 的来源是 `/data/adb/modules/<id>` | mountify 先复制到 `/mnt/vendor/<伪装名>` 再挂，来源变成厂商分区 |
+| 挂载点数量 | KSU 的 magic mount 给每个文件单独 bind mount，`/proc/mounts` 里条目暴涨 | 交给 MMRS 按目录合并挂载，条目数回到厂商水平 |
+| 挂载来源 | magic mount 的来源是 `/data/adb/modules/<id>` | MMRS 那两层 tmpfs 的来源默认写死 `KSU`；加固后改成 `tmpfs`，和系统自带的 `/debug_ramdisk` 一模一样 |
+| 能否按应用隐藏 | 挂载没登记给 KSU 驱动，denylist 对它们无效 | 加固时打开 MMRS 的 `umount`，每个挂载点登记给 KSU，被屏蔽的应用才真的看不到 |
 | 文件名 | `/system/fonts` 里出现带模块名的文件 | 全部沿用 OPPO 自己的 `SysFont-` / `SysSans-` 前缀 |
 
 ### 推荐配置
 
-1. 装 [mountify](https://github.com/backslashxx/mountify)（KernelSU 3.0+ 必需），以**元模块**方式安装；
+1. 装 [Meta-Magic-Mount-RS](https://github.com/Tools-cx-app/meta-magic_mount-rs)
+   （模块 ID `magic_mount_rs`，下称 MMRS），以**元模块**方式安装——KernelSU 3.0+ 必需；
 2. 装一个 Zygisk 提供者（Zygisk Next / ReZygisk / NeoZygisk），把 Denylist Policy 设为
-   **Enforced** 或 **Unmount Only**——这一步才是「让指定应用看不到挂载」的关键，模块自己做不了；
+   **Enforced** 或 **Unmount Only**，这是「让指定应用看不到挂载」的最后一段；
 3. 打开 WebUI「更多 → 挂载隐藏」，点**一键加固**，重启。
 
-一键加固做的事（改前备份到 `/data/adb/mountify/config.sh.bak`）：
+一键加固做的事（改前备份到 `/data/adb/magic_mount/config.toml.bak`）：
 
-- `FAKE_MOUNT_NAME` 从默认的 `mountify` 换成 `my_manifest` 之类像厂商分区的名字，
-  自动挑一个当前不存在的（撞名会让 mountify 直接退出）；
-- 有 Zygisk 提供者时才把 `MOUNT_DEVICE_NAME` 设成 `KSU` / `APatch` / `magisk`，
-  否则保持 `overlay`——没有提供者时写 `KSU` 反而更显眼；
-- tmpfs 模式打开 `test_decoy_mount`，多加一层诱饵挂载；
+- **`mountsource`：`KSU` → `tmpfs`**。这个字段就是 `/proc/self/mountinfo` 里那两层 tmpfs 的
+  来源字符串，默认值等于自报家门。改成 `tmpfs` 之后，和系统自己在 `/debug_ramdisk`
+  挂的那层完全一致，看不出上面还压了一层；
+- **`umount`：`false` → `true`**。MMRS 会把每个挂载点通过 `MANAGE_TRY_UMOUNT` 登记给 KSU
+  驱动，denylist 里的应用才会真的看不到这层挂载。默认是关的，等于挂载对所有检测应用可见；
 - 清掉 v1.2.0 遗留的 `LiquidFont-*` 字体文件。
+
+> 仍然兼容 mountify：`hide.sh` 按标志文件认出元模块类型，mountify 走原来那套
+> （伪装挂载点 `/mnt/vendor/<名字>` + `test_decoy_mount`）。
 
 ### 一个会让字体直接失效的坑
 
-mountify 的 `mountify_copy()` 里有两段相反的判断：
+元模块处理 `skip_mount` 的方式是反的，mountify 的 `mountify_copy()` 里写得很清楚：
 
 - **元模块模式**（元模块目录里有 `metamount.sh`）：目标模块带 `skip_mount` 会被**直接跳过挂载**，
   表现是「模块装了、WebUI 也应用了，重启后字体一点没变」；
 - **普通模块模式**：mountify 反过来会自己 `touch skip_mount`，不用手管。
+  （MMRS 的 `metainstall.sh` 同样尊重 `skip_mount`，语义一致。）
 
 所以网上那些「装完在模块目录 touch 一个 skip_mount」的教程，在元模块模式下是反向操作。
 本模块刷入时会检查并清掉残留的 `skip_mount`，`hide.sh status` 会把它标成 `hide.skip=stale`。
@@ -163,8 +169,8 @@ mountify 的 `mountify_copy()` 里有两段相反的判断：
 - `FONTS/`、`FALLBACK/`、`CONFIG/`、`webroot/`、`system/`、`tools/`、`META-INF/`
 - 应用日志、子集缓存、`skip_mount` / `disable` / `remove` 等标记文件
 - 被「Play 商店字体接管」停用的 GMS 组件（**会自动放回去**）
-- mountify 的配置（还原成加固前的样子，并删掉我们留下的 `config.sh.bak`）
-- mountify `skipped_modules` 里的本模块记录
+- 元模块配置（MMRS 的 `config.toml` / mountify 的 `config.sh`）还原成加固前的样子，并删掉我们留下的 `.bak`
+- mountify `skipped_modules` 里的本模块记录（只在用 mountify 时存在）
 - OTA 暂存的 `/data/adb/modules_update/LiquidFont`
 
 一个时序细节：Magisk 是在**下次开机**的 post-fs-data 阶段执行卸载脚本的，那时 `pm` / `am`
@@ -183,7 +189,7 @@ LiquidFont/
 ├── apply.sh                    # 应用脚本：五槽位 → system/fonts（WebUI 也调用它）
 ├── xmlsync.sh                  # 把兜底字族注入到设备真正生效的字体清单
 ├── gms.sh                      # Play 商店字体接管：停用 GMS 字体服务 + 清缓存
-├── hide.sh                     # 挂载隐藏：元模块配置加固 + 命名痕迹清理
+├── hide.sh                     # 挂载隐藏：MMRS / mountify 配置加固 + 命名痕迹清理
 ├── uninstall.sh                # 卸载清理
 ├── FONTS/                      # 槽位目录（hans/hant/en/mono/emoji.ttf）
 ├── FALLBACK/                   # 内置全字库（遍黑体 / Unifont + 各自许可证）

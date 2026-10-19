@@ -217,8 +217,8 @@
         hide: (() => {
           const on = localStorage.getItem('lf.hide') === 'on';
           return on
-            ? { root: 'ksu', meta: 'mountify', metamode: 'metamodule', fake: 'my_manifest', dev: 'KSU', mounts: '2', zygisk: 'Zygisk Next', legacy: 0, state: 'hardened' }
-            : { root: 'ksu', meta: 'mountify', metamode: 'metamodule', fake: 'mountify', dev: 'overlay', mounts: '2', zygisk: 'none', legacy: 0, state: 'partial' };
+            ? { root: 'ksu', kind: 'mmrs', meta: 'Magic Mount-rs', metamode: 'metamodule', src: 'tmpfs', umount: 'true', fake: '-', dev: '-', mounts: '-', zygisk: 'Zygisk Next', legacy: 0, state: 'hardened' }
+            : { root: 'ksu', kind: 'mmrs', meta: 'Magic Mount-rs', metamode: 'metamodule', src: 'KSU', umount: 'false', fake: '-', dev: '-', mounts: '-', zygisk: 'Zygisk Next', legacy: 0, state: 'partial' };
         })()
       };
     }
@@ -237,7 +237,7 @@
     let applied = false, rom = '', missing = false, fallback = 'missing';
     const fbVersions = { plangothic: '', unifont: '' };
     const gms = { flag: 'off', state: 'missing' };
-    const hide = { root: '', meta: 'none', metamode: 'none', fake: '-', dev: '-', mounts: '-', zygisk: 'none', legacy: 0, state: 'basic' };
+    const hide = { root: '', kind: 'none', meta: 'none', metamode: 'none', src: '-', umount: '-', fake: '-', dev: '-', mounts: '-', zygisk: 'none', legacy: 0, state: 'basic' };
     // 字体清单注入状态：on=已带兜底字族 raw=原样 none=设备没有
     const xml = { fonts: '', fallback: '', base: '', ule: '', patched: 0, total: 0, fmgr: '' };
     r.out.split('\n').forEach((line) => {

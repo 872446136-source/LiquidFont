@@ -32,7 +32,7 @@
     fallback: 'idle',
     fbVersions: { plangothic: '', unifont: '' },
     gms: { flag: 'off', state: 'missing' },
-    hide: { root: '', meta: 'none', metamode: 'none', fake: '-', dev: '-', zygisk: 'none', legacy: 0, state: 'basic' },
+    hide: { root: '', kind: 'none', meta: 'none', metamode: 'none', src: '-', umount: '-', fake: '-', dev: '-', zygisk: 'none', legacy: 0, state: 'basic' },
     xml: { fonts: '', fallback: '', base: '', ule: '', patched: 0, total: 0, fmgr: '' },
     mode: B.MODE,
     execOk: true,
@@ -370,12 +370,43 @@
     const chip = $('#hide-chip');
     if (!chip) return;
     const h = state.hide || {};
-
+    const kind = h.kind || 'none';
+    const isMmrs = kind === 'mmrs';
     const hasMeta = h.meta && h.meta !== 'none';
+
     $('#hide-meta').textContent = hasMeta
       ? h.meta + (h.metamode === 'metamodule' ? ' · 元模块' : ' · 普通模块')
       : '无 · 由 KSU 自己挂载';
-    $('#hide-fake').textContent = h.fake && h.fake !== '-' ? '/mnt/vendor/' + h.fake : '—';
+
+    // 挂载来源：MMRS 里这就是 mountinfo 中那两层 tmpfs 的来源字符串
+    const srcEl = $('#hide-src');
+    if (!hasMeta) {
+      srcEl.textContent = '—';
+      srcEl.className = '';
+    } else if (isMmrs) {
+      const raw = h.src && h.src !== '-' ? h.src : '';
+      const leak = !raw || /^(ksu|magisk|apatch)$/i.test(raw);
+      srcEl.textContent = raw ? raw + (leak ? ' · 会暴露' : ' · 已伪装') : '默认 KSU';
+      srcEl.className = leak ? 'warn' : '';
+    } else {
+      srcEl.textContent = h.src && h.src !== '-' ? h.src : '—';
+      srcEl.className = '';
+    }
+
+    // 按应用卸载：只有 MMRS 会把这些挂载登记给 KSU 驱动
+    const umEl = $('#hide-umount');
+    if (isMmrs) {
+      const on = h.umount === 'true';
+      umEl.textContent = on ? '已登记给 KSU' : '未开启';
+      umEl.className = on ? '' : 'warn';
+    } else {
+      umEl.textContent = '—';
+      umEl.className = '';
+    }
+
+    $('#hide-fake').textContent = h.fake && h.fake !== '-'
+      ? '/mnt/vendor/' + h.fake
+      : (isMmrs ? '按目录合并，无需伪装' : '—');
     $('#hide-zygisk').textContent = h.zygisk && h.zygisk !== 'none' ? h.zygisk : '未检测到';
     $('#hide-legacy').textContent = h.legacy > 0 ? h.legacy + ' 个（加固时清除）' : '无';
 
@@ -388,17 +419,20 @@
     chip.textContent = hit[0];
     chip.className = 'chip' + (hit[1] === 'ok' ? ' on' : hit[1] === 'warn' ? ' warn' : '');
 
+    const zyg = h.zygisk && h.zygisk !== 'none' ? h.zygisk : '';
     let tip;
     if (h.state === 'hardened') {
-      tip = h.zygisk && h.zygisk !== 'none'
-        ? '挂载点已伪装。最后一步：在 ' + h.zygisk + ' 里把 Denylist Policy 设为 Enforced 或 Unmount Only，被屏蔽的应用才会看不到这层挂载。'
-        : '挂载点已伪装，但没有 Zygisk 提供者，挂载无法对指定应用单独隐藏。建议装 Zygisk Next 或 ReZygisk。';
+      tip = zyg
+        ? '挂载来源与挂载点都处理好了。最后一步：在 ' + zyg + ' 里把 Denylist Policy 设为 Enforced 或 Unmount Only，被屏蔽的应用才会看不到这层挂载。'
+        : '挂载来源已伪装、挂载点也已登记给 KSU，但没检测到 Zygisk 提供者，按应用隐藏还差一步。建议装 Zygisk Next 或 ReZygisk。';
+    } else if (h.state === 'partial' && isMmrs) {
+      tip = 'MMRS 已就位，但挂载来源还是 KSU、按应用卸载也没开。点下面的按钮，把这两个开关一次配好。';
     } else if (h.state === 'partial') {
       tip = '元模块已就位，但挂载点还是默认的 mountify。点下面的按钮把伪装名、诱饵挂载和挂载源一次性配好。';
     } else if (state.mode === 'demo') {
-      tip = '演示模式：这里显示的是加固后的样子。真机上点一下会把 mountify 配置改成伪装挂载点。';
+      tip = '演示模式：这里显示的是加固后的样子。真机上点一下会把元模块配置改成伪装来源 + 按应用卸载。';
     } else {
-      tip = '没有元模块时，KSU 会给每个字体文件单独挂载，挂载点数量很容易被数出来。KernelSU 3.0+ 请先刷 mountify，再回来点加固。';
+      tip = '没有元模块时，KSU 会给每个字体文件单独挂载，挂载点数量很容易被数出来。KernelSU / APatch 请先刷 Meta-Magic-Mount-RS，再回来点加固。';
     }
     $('#hide-tip').textContent = tip;
 
@@ -412,9 +446,13 @@
     try {
       const r = await B.setHide(true);
       if (!r.ok) throw new Error(r.out || '执行失败');
-      // hide.sh 会把新名字打在输出里：FAKE_MOUNT_NAME: mountify → my_manifest
-      const m = /FAKE_MOUNT_NAME:[^\n]*→\s*(\S+)/.exec(r.out || '');
-      if (m) state.hide.fake = m[1];
+      const out = r.out || '';
+      // hide.sh 会把新值打在输出里，按元模块类型各取各的
+      const mf = /FAKE_MOUNT_NAME:[^\n]*→\s*(\S+)/.exec(out);
+      if (mf) state.hide.fake = mf[1];
+      const ms = /mountsource:[^\n]*→\s*(\S+)/.exec(out);
+      if (ms) state.hide.src = ms[1];
+      if (/umount:[^\n]*→\s*true/.test(out)) state.hide.umount = 'true';
       state.hide.state = 'hardened';
       state.hide.legacy = 0;
       renderHide();

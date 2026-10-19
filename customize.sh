@@ -82,7 +82,7 @@ CHECK_METAMODULE() {
         return 0
     fi
     if [ ! -f /data/adb/metamodule/module.prop ]; then
-        fail "KernelSU >= 3.0.0 需要元模块（mountify / hybrid_mount），请先安装"
+        fail "KernelSU >= 3.0.0 需要元模块（推荐 Meta-Magic-Mount-RS），请先安装"
     fi
     name="$(sed -n 's/^name=//p' /data/adb/metamodule/module.prop | head -n 1 || true)"
     ok "元模块已安装: ${name:-未知}"
@@ -147,7 +147,7 @@ CHECK_FONTLOADER() {
 }
 
 # ---------- 挂载痕迹 ----------
-# 元模块模式下，模块目录里残留 skip_mount 会让 mountify 直接跳过本模块（字体不生效），
+# 元模块模式下，模块目录里残留 skip_mount 会让元模块直接跳过本模块（字体不生效），
 # 顺手清掉；旧命名的字体文件也一起清。剩下的伪装配置交给 WebUI 的「一键加固」，
 # 刷入阶段不擅自改别的模块的配置。
 HARDEN() {

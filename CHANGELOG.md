@@ -1,5 +1,62 @@
 # 更新日志
 
+## v1.5.6
+
+推荐元模块从 mountify 换成 **Meta-Magic-Mount-RS**（下称 MMRS，模块 ID `magic_mount_rs`），
+挂载隐藏按它的机制重做，比原来多藏两处。
+
+### 为什么换
+
+MMRS 走 magic mount 的路子：按目录合并挂载，不再给每个文件单独 bind mount，
+挂载点数量本来就回到厂商水平。但真正有价值的是它有两个 mountify 没有的开关——
+这两个才是「藏得住藏不住」的关键，而它们默认都是**关着的**：
+
+| 开关 | 默认 | 问题 |
+| --- | --- | --- |
+| `mountsource` | `"KSU"` | 这就是 `/proc/self/mountinfo` 里那两层 tmpfs 的**来源字符串**。默认值等于在挂载表里直接写「这里是 KernelSU」 |
+| `umount` | `false` | 不登记挂载点。denylist 里的应用照样看得见这层挂载，按应用隐藏等于没做 |
+
+看了源码才敢下结论：
+
+```rust
+// main.rs —— mountsource 只是 mount(2) 的 source 参数，纯标签
+mount(&config.mountsource, "/debug_ramdisk", "tmpfs", MountFlags::empty(), None)?;
+
+// magic_mount.rs —— umount 打开才会把每个挂载点报给 KSU
+if self.umount { send_unmountable(&self.path); }
+
+// ksucalls.rs —— 走 MANAGE_TRY_UMOUNT，登记后 KSU 才能按应用卸载
+add_umount_with(target, |cmd| ksuctl(MANAGE_TRY_UMOUNT, cmd))?;
+```
+
+### 一键加固改了什么
+
+配置文件在 `/data/adb/magic_mount/config.toml`，改前备份成 `config.toml.bak`：
+
+- **`mountsource`：`KSU` → `tmpfs`**
+  系统自己在 `/debug_ramdisk` 挂的就是 tmpfs，来源也写 `tmpfs`。改成一样之后，
+  那两层后加的 tmpfs 混在里面看不出区别；写 `KSU` 则是一眼就能筛出来。
+  只在这几个值（空 / `KSU` / `Magisk` / `APatch`）时才改，用户自己设过的名字不动。
+- **`umount`：`false` → `true`**
+  每个挂载点登记给 KSU 驱动，被屏蔽的应用才会真的看不到这层挂载。
+- 清掉 v1.2.0 遗留的 `LiquidFont-*` 字体文件、移除会让模块被跳过的 `skip_mount`。
+
+WebUI 的「挂载隐藏」卡片也跟着改了，现在会分开显示**挂载来源**（`tmpfs · 已伪装` /
+`KSU · 会暴露`）和**按应用卸载**（`已登记给 KSU` / `未开启`），哪一项没做一眼就看得出。
+
+### 其它
+
+- `hide.sh` 按标志文件（`meta-mm` / `metamount.sh` / `config.toml`）认出元模块类型，
+  **mountify 仍然可用**，走原来那套伪装挂载点 + 诱饵挂载；
+- 卸载时把 MMRS 的 `config.toml` 还原成加固前的样子，并删掉我们留下的 `.bak`；
+- 刷入脚本的提示文案从 mountify 改成 MMRS。
+
+### 还剩什么藏不住
+
+MMRS 的 `umount` 只是把挂载点**登记**给 KSU，真正执行卸载的是 Zygisk 提供者。
+没装 Zygisk Next / ReZygisk，或者 Denylist Policy 没设成 Enforced / Unmount Only，
+按应用隐藏依然不会生效——这一段模块替代不了。
+
 ## v1.5.5
 
 把 Font_Weight_Test 的全部测试项搬进 WebUI，顺手**推翻 v1.5.4 的一个错误结论**。

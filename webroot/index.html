@@ -308,11 +308,14 @@ Liquid Glass 0123456789
         </div>
         <p class="hint">
           字体靠 overlay 盖在 <b>/system/fonts</b> 上。KSU 自带的挂载会给每个文件单独做
-          bind mount，挂载点数量很容易被数出来；交给元模块（mountify）整体挂载后，
-          挂载点回到厂商水平，来源目录也能伪装成 OEM 分区。
+          bind mount，挂载点数量很容易被数出来。交给元模块
+          <b>Meta-Magic-Mount-RS</b> 接管后，挂载按目录合并、数量回到厂商水平；
+          它那两个隐藏开关——挂载来源名与按应用卸载——本模块会自动配好。
         </p>
         <dl class="kv" id="hide-list">
           <div><dt>挂载方式</dt><dd id="hide-meta">—</dd></div>
+          <div><dt>挂载来源</dt><dd id="hide-src">—</dd></div>
+          <div><dt>按应用卸载</dt><dd id="hide-umount">—</dd></div>
           <div><dt>伪装挂载点</dt><dd id="hide-fake">—</dd></div>
           <div><dt>Zygisk 卸载</dt><dd id="hide-zygisk">—</dd></div>
           <div><dt>旧命名残留</dt><dd id="hide-legacy">—</dd></div>
@@ -357,7 +360,7 @@ Liquid Glass 0123456789
           内置五槽位配置、全液态玻璃 WebUI，以及遍黑体 / GNU Unifont 两套开源全字库兜底。
         </p>
         <dl class="kv">
-          <div><dt>版本</dt><dd id="about-ver">1.5.5</dd></div>
+          <div><dt>版本</dt><dd id="about-ver">1.5.6</dd></div>
           <div><dt>字体配置</dt><dd>ColorOS 17 (fonts.xml / base / ule)</dd></div>
           <div><dt>许可</dt><dd>GPL-3.0</dd></div>
         </dl>
