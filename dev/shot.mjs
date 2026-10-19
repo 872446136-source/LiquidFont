@@ -12,7 +12,7 @@ import { join } from 'node:path';
 const CHROME =
   process.env.CHROME ||
   'C:/Program Files/Google/Chrome/Application/chrome.exe';
-const [url, out, w = '390', h = '844', theme = 'dark', view = 'home'] = process.argv.slice(2);
+const [url, out, w = '390', h = '844', theme = 'dark', view = 'home', scrollSel = ''] = process.argv.slice(2);
 const PORT = 9333;
 
 const profile = mkdtempSync(join(tmpdir(), 'lf-shot-'));
@@ -81,6 +81,15 @@ await send('Runtime.evaluate', {
   expression: `window.LF && window.LF.app && window.LF.app.go('${view}'); true;`
 });
 await sleep(900);
+
+// 可选：把某个元素滚进视野（截图只截视口）
+if (scrollSel) {
+  await send('Runtime.evaluate', {
+    expression: "(() => { const el = document.querySelector('" + scrollSel + "'); if (el) el.scrollIntoView({ block: 'center' }); return !!el; })()",
+    returnByValue: true
+  });
+  await sleep(400);
+}
 
 // 量一下有没有横向溢出
 const metrics = await send('Runtime.evaluate', {

@@ -17,9 +17,10 @@
 #   xmlsync.sh --status [<模块目录>]    只输出状态，key=value
 #
 # 设计要点：
-#   - 模块自带的 fonts.xml / fonts_base.xml / fonts_ule.xml 已经内置兜底字族，
+#   - 不猜哪份清单是权威的：把 /system/etc、/system/system_ext/etc、
+#     /system_ext/etc、/product/etc 下所有带 </familyset> 的 XML 都扫一遍；
+#   - 模块自带的 fonts.xml / fonts_base.xml / fonts_ule.xml 已经内置字族，
 #     原样挂载，不被设备版本覆盖（避免把 ColorOS 17 的槽位映射换掉）；
-#   - 只给「模块没内置、设备上真实存在」的清单就地打补丁，即 font_fallback.xml；
 #   - 补丁只是在最后一个 </familyset> 前追加两条无名 family，排在整条兜底链末尾，
 #     只接管前面没人认领的码位，不改设备原有的任何一条字体映射；
 #   - 已含兜底字族就跳过，重复刷入 / 重复应用都不会叠加；
@@ -43,15 +44,13 @@ ROOT="${LF_ROOT:-}"
 LF_BLOCK='    <family><font weight="400" style="normal">SysFont-Unicode.otf</font></family>
     <family><font weight="400" style="normal">SysFont-UnicodeExt.otf</font></family>'
 
-# 模块内置、随模块挂载的清单
+# 模块内置、随模块挂载的清单（内容已带字族，只做校验）
 SHIPPED="/system/etc/fonts.xml
 /system/system_ext/etc/fonts_base.xml
 /system/system_ext/etc/fonts_ule.xml"
 
-# 模块没内置、需要就地打补丁的清单
-PATCHABLE="/system/etc/font_fallback.xml
-/system/system_ext/etc/font_fallback.xml
-/system_ext/etc/font_fallback.xml"
+# 扫清单的目录
+DISCOVER_DIRS="/system/etc /system/system_ext/etc /system_ext/etc /product/etc"
 
 # 逻辑路径 → 模块内路径
 # /system_ext/... 在多数设备上是 /system/system_ext 的挂载或符号链接，
@@ -66,7 +65,7 @@ modpath_of() {
 name_of() {
     case "$1" in
     /system/etc/fonts.xml) echo fonts ;;
-    /system/etc/font_fallback.xml) echo fallback ;;
+    */font_fallback.xml) echo fallback ;;
     */fonts_base.xml) echo base ;;
     */fonts_ule.xml) echo ule ;;
     *) echo other ;;
@@ -75,12 +74,32 @@ name_of() {
 
 has_fb() { grep -q 'SysFont-Unicode\.otf' "$1" 2>/dev/null; }
 
+is_shipped() {
+    case "$1" in
+    /system/etc/fonts.xml | /system/system_ext/etc/fonts_base.xml | /system/system_ext/etc/fonts_ule.xml) return 0 ;;
+    esac
+    return 1
+}
+
+# 设备上所有「带 familyset 且模块没内置」的清单
+collect_extra() {
+    for d in $DISCOVER_DIRS; do
+        for f in "$ROOT$d"/*.xml; do
+            [ -f "$f" ] || continue
+            grep -q '</familyset>' "$f" 2>/dev/null || continue
+            rel="${f#"$ROOT"}"
+            is_shipped "$rel" && continue
+            echo "$rel"
+        done
+    done
+}
+
 # ---------- 状态 ----------
 if [ "$STATUS" = "1" ]; then
     on=0
     total=0
     seen=""
-    for rel in $SHIPPED $PATCHABLE; do
+    for rel in $SHIPPED $(collect_extra); do
         src="$ROOT$rel"
         [ -f "$src" ] || continue
         real="$(readlink -f "$src" 2>/dev/null || echo "$src")"
@@ -110,8 +129,6 @@ if [ "$STATUS" = "1" ]; then
 
     echo "xml.patched=$on"
     echo "xml.total=$total"
-    # FontManager 的可更新字体配置：存在时会被追加到系统清单后面，
-    # 我们不动它（改 /data 容易出问题），只在状态里标一句。
     if [ -f "$ROOT/data/fonts/files/fonts.xml" ]; then
         echo "xml.fmgr=present"
     else
@@ -197,7 +214,7 @@ inject() {
 
 changed=0
 seen=""
-for rel in $PATCHABLE; do
+for rel in $(collect_extra); do
     src="$ROOT$rel"
     # /system_ext 与 /system/system_ext 指向同一个文件，别重复处理
     real="$(readlink -f "$src" 2>/dev/null || echo "$src")"
@@ -211,7 +228,7 @@ for rel in $PATCHABLE; do
 done
 
 if [ "$changed" = "0" ]; then
-    echo "[-] 设备无 font_fallback.xml，沿用模块内置 fonts.xml"
+    echo "[-] 设备上没有需要补的字体清单，沿用模块内置 fonts.xml"
 fi
 
 # 模块自带的清单也要确认带上兜底字族（v1.4.0 已内置，这里做兜底校验）

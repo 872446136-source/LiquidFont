@@ -244,10 +244,9 @@
     const xel = $('#env-xml');
     if (xel) {
       const x = state.xml || {};
-      const keys = ['fonts', 'fallback', 'base', 'ule'];
-      const exist = keys.filter((k) => x[k] === 'on' || x[k] === 'raw');
-      const on = keys.filter((k) => x[k] === 'on').length;
-      const total = x.total || exist.length;
+      // 以脚本给的计数为准：清单可能不止 fonts / fallback / base / ule 四种
+      const on = x.patched || 0;
+      const total = x.total || 0;
       xel.classList.remove('warn');
       if (state.mode === 'demo') {
         xel.textContent = '演示模式';
@@ -298,8 +297,7 @@
     const cov = $('#fb-cov');
     if (cov) {
       const x = state.xml || {};
-      const notInjected = ['fonts', 'fallback', 'base', 'ule']
-        .filter((k) => x[k] === 'raw').length;
+      const notInjected = Math.max(0, (x.total || 0) - (x.patched || 0));
       cov.textContent = notInjected
         ? '汉字覆盖 103,386 / 103,389 · 但字体清单还没注入兜底字族，Unifont 目前不生效'
         : '汉字覆盖 103,386 / 103,389（Unihan 17.0）· 全码位并集 191,389';
@@ -696,6 +694,29 @@
       box.hidden = false;
       box.textContent = '读取中…';
       box.textContent = await B.lastLog();
+    });
+
+    $('#doc-btn').addEventListener('click', async () => {
+      const btn = $('#doc-btn');
+      const box = $('#doc-box');
+      const chip = $('#doc-chip');
+      box.hidden = false;
+      box.textContent = '生成中…';
+      btn.disabled = true;
+      chip.textContent = '生成中';
+      chip.classList.remove('warn');
+      try {
+        const r = await B.doctor();
+        box.textContent = r.out || '（无输出）';
+        chip.textContent = r.ok ? '已生成' : '有异常';
+        if (!r.ok) chip.classList.add('warn');
+      } catch (e) {
+        box.textContent = '生成失败：' + (e.message || e);
+        chip.textContent = '失败';
+        chip.classList.add('warn');
+      } finally {
+        btn.disabled = false;
+      }
     });
 
     const bindSwitch = (sel, fn) => {

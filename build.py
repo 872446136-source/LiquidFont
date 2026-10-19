@@ -23,6 +23,7 @@ INCLUDE = [
     "gms.sh",
     "hide.sh",
     "xmlsync.sh",
+    "doctor.sh",
     "uninstall.sh",
     "META-INF",
     "system",
@@ -37,6 +38,7 @@ REQUIRED = [
     "customize.sh",
     "apply.sh",
     "xmlsync.sh",
+    "doctor.sh",
     "META-INF/com/google/android/update-binary",
     "META-INF/com/google/android/updater-script",
     "webroot/index.html",
@@ -46,6 +48,9 @@ REQUIRED = [
 ]
 
 SKIP_SUFFIX = {".pyc", ".DS_Store"}
+TEXT_SUFFIX = (".sh", ".prop", ".md", ".js", ".mjs", ".css", ".html", ".json", ".xml", ".yml", ".py", ".txt")
+CRLF = bytes((13, 10))
+LF = bytes((10,))
 SKIP_NAMES = {".gitkeep", ".DS_Store", "Thumbs.db"}
 
 
@@ -103,7 +108,11 @@ def build() -> Path:
             # 脚本给可执行位，其余 0644
             exe = arc.endswith(".sh") or arc.endswith("update-binary")
             info.external_attr = (0o100755 if exe else 0o100644) << 16
-            z.writestr(info, path.read_bytes())
+            data = path.read_bytes()
+            if arc.endswith(TEXT_SUFFIX) and CRLF in data:
+                print(f"  ! {arc} 含 CRLF，已按 LF 写入")
+                data = data.replace(CRLF, LF)
+            z.writestr(info, data)
 
     return out
 

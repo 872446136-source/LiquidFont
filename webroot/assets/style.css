@@ -844,6 +844,22 @@ html[data-theme="light"] .sw i {
   overflow: auto;
 }
 
+/* 诊断报告：等宽、保列对齐，窄屏横向滚动 */
+.doc {
+  margin: 0;
+  padding: 12px;
+  border-radius: var(--r-md);
+  background: rgba(0, 0, 0, .22);
+  font-size: 10px;
+  line-height: 1.55;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  color: var(--text-2);
+  white-space: pre;
+  max-height: 420px;
+  overflow: auto;
+}
+html[data-theme="light"] .doc { background: rgba(20, 20, 24, .05); }
+
 /* ───────────── 底部导航 ───────────── */
 .dock {
   position: absolute;

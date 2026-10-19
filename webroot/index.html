@@ -209,6 +209,19 @@ Liquid Glass 0123456789
       </div>
 
       <div class="card glass ring reveal" style="--i:5">
+        <div class="card-head">
+          <h3 class="card-title">诊断报告</h3>
+          <span class="chip" id="doc-chip">未生成</span>
+        </div>
+        <p class="hint">
+          兜底字体挂载后到底有没有、字体清单有没有带上字族、末尾还有哪些可用的落点，
+          一次全打出来。开关开了还是缺字，先看这里。
+        </p>
+        <button class="btn ghost wide" id="doc-btn" style="margin-top:12px">生成诊断报告</button>
+        <pre class="doc" id="doc-box" style="margin-top:12px" hidden></pre>
+      </div>
+
+      <div class="card glass ring reveal" style="--i:6">
         <h3 class="card-title">操作</h3>
         <div class="stack">
           <button class="btn ghost wide" id="log-btn">查看最近一次应用日志</button>
@@ -216,16 +229,16 @@ Liquid Glass 0123456789
         </div>
       </div>
 
-      <pre class="log glass ring reveal" id="log-box" style="--i:6" hidden></pre>
+      <pre class="log glass ring reveal" id="log-box" style="--i:7" hidden></pre>
 
-      <div class="card glass ring reveal" style="--i:7">
+      <div class="card glass ring reveal" style="--i:8">
         <h3 class="card-title">关于</h3>
         <p class="about">
           <b>LiquidFont</b> 是一个面向 ColorOS 16 / 17 的字体替换模块，
           内置五槽位配置、全液态玻璃 WebUI，以及遍黑体 / GNU Unifont 两套开源全字库兜底。
         </p>
         <dl class="kv">
-          <div><dt>版本</dt><dd id="about-ver">1.4.0</dd></div>
+          <div><dt>版本</dt><dd id="about-ver">1.5.1</dd></div>
           <div><dt>字体配置</dt><dd>ColorOS 17 (fonts.xml / base / ule)</dd></div>
           <div><dt>许可</dt><dd>GPL-3.0</dd></div>
         </dl>

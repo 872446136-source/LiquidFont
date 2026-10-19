@@ -463,6 +463,17 @@
     return r.out || '暂无日志';
   }
 
+  /* ───────── 诊断 ───────── */
+  // 只读：把设备上的真实状态打出来，不改任何东西
+  async function doctor() {
+    if (!KSU) return { ok: true, out: '演示模式：诊断只在真机上可用。' };
+    const r = await exec(
+      `if [ -f ${MODDIR}/doctor.sh ]; then sh ${MODDIR}/doctor.sh ${MODDIR} 2>&1; ` +
+      `else echo "缺少 doctor.sh，请刷入 v1.5.1 及以上版本"; fi`
+    );
+    return { ok: r.code === 0, out: (r.out || r.err || '').replace(/\s+$/, '') };
+  }
+
   async function restore() {
     if (!KSU) {
       writeDemoMeta({});
@@ -480,7 +491,7 @@
   }
 
   global.LF = {
-    bridge: { MODE, MODDIR, status, write, readBytes, clear, clearAll, apply, lastLog, restore, setFallback, setGms, setHide, exec, execStyle: execStyleId, toast },
+    bridge: { MODE, MODDIR, status, write, readBytes, clear, clearAll, apply, lastLog, restore, setFallback, setGms, setHide, doctor, exec, execStyle: execStyleId, toast },
     bytesToB64,
     b64ToBytes
   };
