@@ -24,6 +24,8 @@
   };
 
   const state = {
+    fallback: 'idle',
+    fbVersions: { plangothic: '', unifont: '' },
     mode: B.MODE,
     slots: {},
     meta: {},
@@ -211,8 +213,44 @@
           : '演示模式 · 界面可自由体验';
   }
 
+  function renderFallback() {
+    const sw = $('#fb-sw');
+    if (!sw) return;
+    const v = state.fbVersions || {};
+    $('#fb-ver-p').textContent = v.plangothic || '—';
+    $('#fb-ver-u').textContent = v.unifont || '—';
+
+    const missing = state.fallback === 'missing';
+    const on = state.fallback !== 'off' && !missing;
+    sw.setAttribute('aria-checked', on ? 'true' : 'false');
+    sw.disabled = missing;
+
+    const map = {
+      applied: '已随字体一起安装',
+      idle: '待应用 · 点「应用字体」后生效',
+      off: '已关闭 · 重新开启后需再次应用',
+      missing: '当前版本未内置全字库'
+    };
+    $('#fb-state').textContent = map[state.fallback] || '—';
+  }
+
+  async function toggleFallback() {
+    const on = $('#fb-sw').getAttribute('aria-checked') !== 'true';
+    $('#fb-sw').setAttribute('aria-checked', on ? 'true' : 'false');
+    try {
+      const r = await B.setFallback(on);
+      if (!r.ok) throw new Error(r.out || '写入失败');
+      toast(on ? '已开启全字库兜底，记得应用字体' : '已关闭全字库兜底');
+      await refresh(true);
+    } catch (e) {
+      $('#fb-sw').setAttribute('aria-checked', on ? 'false' : 'true');
+      toast('切换失败：' + (e.message || e), 'err');
+    }
+  }
+
   function renderAll() {
     renderMini();
+    renderFallback();
     renderSlots();
     updateStats();
     updateEnv();
@@ -226,6 +264,8 @@
       state.slots = st.slots || {};
       state.applied = !!st.applied;
       state.rom = st.rom || '';
+      state.fallback = st.fallback || 'missing';
+      state.fbVersions = st.fbVersions || state.fbVersions;
       renderAll();
       if (!quiet) toast(state.mode === 'demo' ? '演示模式：操作不会写入设备' : '状态已刷新');
     } catch (e) {
@@ -456,6 +496,17 @@
       box.textContent = '读取中…';
       box.textContent = await B.lastLog();
     });
+
+    const fbSw = $('#fb-sw');
+    if (fbSw) {
+      fbSw.addEventListener('click', toggleFallback);
+      fbSw.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggleFallback();
+        }
+      });
+    }
 
     $('#restore-btn').addEventListener('click', async () => {
       if (!confirm('还原系统默认字体？会删除模块内所有字体文件。')) return;

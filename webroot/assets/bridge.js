@@ -85,7 +85,15 @@
       ['hans', 'hant', 'en', 'mono', 'emoji'].forEach((s) => {
         slots[s] = meta[s] ? { set: true, size: meta[s].size || 0 } : { set: false, size: 0 };
       });
-      return { mode: 'demo', slots, applied: Object.values(slots).some((s) => s.set), rom: '演示模式 · 未连接设备' };
+      const fbOn = localStorage.getItem('lf.fallback') !== 'off';
+      return {
+        mode: 'demo',
+        slots,
+        applied: Object.values(slots).some((s) => s.set),
+        rom: '演示模式 · 未连接设备',
+        fallback: fbOn ? 'idle' : 'off',
+        fbVersions: { plangothic: '2.9.5795', unifont: '18.0.01' }
+      };
     }
 
     const cmd =
@@ -96,20 +104,24 @@
     const r = await exec(cmd);
     const slots = {};
     ['hans', 'hant', 'en', 'mono', 'emoji'].forEach((s) => (slots[s] = { set: false, size: 0 }));
-    let applied = false, rom = '', missing = false;
+    let applied = false, rom = '', missing = false, fallback = 'missing';
+    const fbVersions = { plangothic: '', unifont: '' };
     r.out.split('\n').forEach((line) => {
       const t = line.trim();
       if (!t) return;
       if (t.startsWith('@rom=')) return void (rom = t.slice(5));
       if (t.startsWith('@api=')) return;
       if (t === 'missing=1') return void (missing = true);
+      if (t.startsWith('fallback=')) return void (fallback = t.slice(9));
+      if (t.startsWith('fb.plangothic_version=')) return void (fbVersions.plangothic = t.slice(22));
+      if (t.startsWith('fb.unifont_version=')) return void (fbVersions.unifont = t.slice(19));
       const m = /^slot\.(\w+)=(set|empty)$/.exec(t);
       if (m) return void (slots[m[1]] = slots[m[1]] || { set: false, size: 0 }, (slots[m[1]].set = m[2] === 'set'));
       const n = /^size\.(\w+)=(\d+)$/.exec(t);
       if (n) return void (slots[n[1]] && (slots[n[1]].size = +n[2]));
       if (t === 'applied=1') applied = true;
     });
-    return { mode: missing ? 'missing' : 'native', slots, applied, rom, raw: r.out };
+    return { mode: missing ? 'missing' : 'native', slots, applied, rom, fallback, fbVersions, raw: r.out };
   }
 
   /* ───────── 写入字体 ───────── */
@@ -187,6 +199,20 @@
     await exec(`rm -f ${MODDIR}/FONTS/*.ttf ${MODDIR}/FONTS/.en-subset.ttf`);
   }
 
+  /* ───────── 全字库兜底开关 ───────── */
+  // 关闭方式就是在 FALLBACK/ 下放一个 .disabled，apply.sh 会据此跳过并清理已装文件
+  async function setFallback(on) {
+    if (!KSU) {
+      try { localStorage.setItem('lf.fallback', on ? 'on' : 'off'); } catch (e) { /* ignore */ }
+      return { ok: true };
+    }
+    const flag = `${MODDIR}/FALLBACK/.disabled`;
+    const r = on
+      ? await exec(`rm -f '${flag}'`)
+      : await exec(`mkdir -p '${MODDIR}/FALLBACK' && : > '${flag}'`);
+    return { ok: r.code === 0, out: r.out || r.err || '' };
+  }
+
   /* ───────── 应用 / 还原 ───────── */
   async function apply() {
     if (!KSU) {
@@ -221,7 +247,7 @@
   }
 
   global.LF = {
-    bridge: { MODE, MODDIR, status, write, readBytes, clear, clearAll, apply, lastLog, restore, exec, toast },
+    bridge: { MODE, MODDIR, status, write, readBytes, clear, clearAll, apply, lastLog, restore, setFallback, exec, toast },
     bytesToB64,
     b64ToBytes
   };

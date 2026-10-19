@@ -25,6 +25,7 @@ INCLUDE = [
     "system",
     "webroot",
     "FONTS",
+    "FALLBACK",
     "tools",
 ]
 
@@ -86,7 +87,7 @@ def build() -> Path:
         for p in walk(entry):
             files.append((p, p.relative_to(ROOT).as_posix()))
 
-    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as z:
         # 空的 FONTS 目录也要留一个条目，方便用户直接往里放字体
         if not any(arc.startswith("FONTS/") for _, arc in files):
             info = zipfile.ZipInfo("FONTS/")

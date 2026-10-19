@@ -1,5 +1,17 @@
 # 更新日志
 
+## v1.1.0
+
+内置全字库，生僻字不再缺字。
+
+- 打包 **遍黑体 Plangothic 2.9.5795**（P1 + P2），覆盖 CJK 扩展 B–J 全部汉字，
+  直接顶替系统里的旧版 `PlangothicP1.ttf` / `PlangothicP2.ttf`
+- 打包 **GNU Unifont 18.0.01**（含 Unifont Upper），覆盖整张 Unicode 码表；
+  作为新的字族追加到 `fonts.xml` 末尾，只接管前面所有字体都没覆盖的码位
+- WebUI「更多」页新增「全字库兜底」开关，可随时关掉并恢复系统原样
+- 三份字体配置（`fonts.xml` / `fonts_base.xml` / `fonts_ule.xml`）同步追加兜底字族
+- 应用日志与状态接口新增兜底状态与字库版本号
+
 ## v1.0.0
 
 首个版本。

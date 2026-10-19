@@ -1,0 +1,13 @@
+# 内置字库版本信息
+# apply.sh 读取本文件做校验；WebUI 在「更多」页展示
+plangothic_version=2.9.5795
+plangothic_date=2026-07-05
+plangothic_family=Plangothic P1 / P2
+plangothic_source=https://github.com/Fitzgerald-Porthmouth-Koenigsegg/Plangothic_Project
+plangothic_license=MIT (字体衍生自思源黑体 / SIL OFL 1.1)
+
+unifont_version=18.0.01
+unifont_date=2026-09-16
+unifont_family=Unifont / Unifont Upper
+unifont_source=https://unifoundry.com/unifont/
+unifont_license=SIL OFL 1.1 + GPL-2.0-or-later (字体嵌入例外)

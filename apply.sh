@@ -22,6 +22,8 @@ esac
 
 FONTS="$MODDIR/FONTS"
 DEST="$MODDIR/system/fonts"
+FB="$MODDIR/FALLBACK"
+FB_OFF="$FB/.disabled"
 
 # 简体：中文字形 + ColorOS 自带的 CJK 兜底文件
 SLOT_HANS="SysSans-Hans-Regular.ttf SysFont-Hans-Regular.ttf SysFont-Static-Regular.ttf SysFont-Myanmar.ttf"
@@ -36,6 +38,14 @@ SLOT_MONO="DroidSansMono.ttf CutiveMono.ttf"
 SLOT_EMOJI="NotoColorEmoji.ttf NotoColorEmoji1.ttf"
 
 SLOTS="hans hant en mono emoji"
+
+# 内置全字库 → system/fonts 的落点
+#   遍黑体：系统里本来就有同名文件，直接顶替（新版本覆盖旧版本）
+#   Unifont：写到 LiquidFont-Unifont*.otf，由模块内置的 fonts.xml 末尾两个字族引用，
+#            排在整条兜底链最后，只接管前面没人认领的码位
+FB_PLANGOTHIC="PlangothicP1.ttf PlangothicP2.ttf"
+FB_UNIFONT="LiquidFont-Unifont.otf LiquidFont-UnifontUpper.otf"
+FB_TARGETS="$FB_PLANGOTHIC $FB_UNIFONT"
 
 # ---------- 状态 ----------
 print_status() {
@@ -54,6 +64,20 @@ print_status() {
         echo "applied=1"
     else
         echo "applied=0"
+    fi
+
+    # 全字库兜底
+    if [ ! -d "$FB" ]; then
+        echo "fallback=missing"
+    elif [ -f "$FB_OFF" ]; then
+        echo "fallback=off"
+    elif [ -f "$DEST/LiquidFont-Unifont.otf" ]; then
+        echo "fallback=applied"
+    else
+        echo "fallback=idle"
+    fi
+    if [ -f "$FB/VERSION" ]; then
+        sed -n 's/^\(plangothic_version\|unifont_version\)=/fb.\1=/p' "$FB/VERSION"
     fi
     echo "moddir=$MODDIR"
 }
@@ -145,6 +169,52 @@ prepare_en() {
     return 0
 }
 
+# ---------- 内置全字库 ----------
+# 遍黑体补 CJK 扩展 B–J，Unifont 补整张 Unicode 码表里剩下的角落。
+# 关闭方式：在 FALLBACK/ 下建一个 .disabled 文件（WebUI 的开关就是干这个）。
+restore_fallback() {
+    for n in $FB_TARGETS; do
+        if [ -f "$DEST/$n" ]; then
+            rm -f "$DEST/$n"
+            echo "[-] 移除 $n"
+        fi
+    done
+}
+
+install_fallback() {
+    if [ ! -d "$FB" ]; then
+        echo "[-] 未内置全字库，跳过"
+        return 0
+    fi
+    if [ -f "$FB_OFF" ]; then
+        echo "[-] 全字库兜底已关闭"
+        restore_fallback
+        return 0
+    fi
+
+    mkdir -p "$DEST" || die "无法创建 $DEST"
+
+    # 遍黑体：同名字体直接覆盖
+    for pair in "PlangothicP1.ttf:PlangothicP1.ttf" "PlangothicP2.ttf:PlangothicP2.ttf"; do
+        src="$FB/${pair%%:*}"
+        dst="${pair##*:}"
+        if [ -f "$src" ]; then
+            cp -f "$src" "$DEST/$dst" || die "复制 $dst 失败"
+            echo "[*] 安装 $dst"
+        fi
+    done
+
+    # Unifont：写到自己的文件名，由 fonts.xml 末尾的字族引用
+    if [ -f "$FB/Unifont.otf" ]; then
+        cp -f "$FB/Unifont.otf" "$DEST/LiquidFont-Unifont.otf" || die "复制 Unifont 失败"
+        echo "[*] 安装 LiquidFont-Unifont.otf"
+    fi
+    if [ -f "$FB/UnifontUpper.otf" ]; then
+        cp -f "$FB/UnifontUpper.otf" "$DEST/LiquidFont-UnifontUpper.otf" || die "复制 Unifont Upper 失败"
+        echo "[*] 安装 LiquidFont-UnifontUpper.otf"
+    fi
+}
+
 # ---------- 主流程 ----------
 [ -f "$FONTS/hans.ttf" ] || die "FONTS/hans.ttf 不存在，请先在 WebUI 里选择简体字体"
 
@@ -187,6 +257,9 @@ if [ -f "$FONTS/emoji.ttf" ]; then
 else
     restore "$SLOT_EMOJI"
 fi
+
+echo "[*] 全字库兜底"
+install_fallback
 
 # 字体文件权限：0644，属主 root
 chmod 0644 "$DEST"/*.ttf 2>/dev/null

@@ -160,6 +160,19 @@ Liquid Glass 0123456789
       </div>
 
       <div class="card glass ring reveal" style="--i:2">
+        <div class="card-head">
+          <h3 class="card-title">全字库兜底</h3>
+          <button class="sw" id="fb-sw" role="switch" aria-checked="false" aria-label="全字库兜底"><i></i></button>
+        </div>
+        <p class="hint">
+          内置 <b>遍黑体 <span id="fb-ver-p">—</span></b>（CJK 扩展 B–J 全部汉字）与
+          <b>GNU Unifont <span id="fb-ver-u">—</span></b>（整张 Unicode 码表），
+          补齐主字体没有的生僻字与冷门文字。关闭后重启即恢复系统原样。
+        </p>
+        <p class="hint dim" id="fb-state">—</p>
+      </div>
+
+      <div class="card glass ring reveal" style="--i:3">
         <h3 class="card-title">操作</h3>
         <div class="stack">
           <button class="btn ghost wide" id="log-btn">查看最近一次应用日志</button>
@@ -167,16 +180,16 @@ Liquid Glass 0123456789
         </div>
       </div>
 
-      <pre class="log glass ring reveal" id="log-box" style="--i:3" hidden></pre>
+      <pre class="log glass ring reveal" id="log-box" style="--i:4" hidden></pre>
 
-      <div class="card glass ring reveal" style="--i:4">
+      <div class="card glass ring reveal" style="--i:5">
         <h3 class="card-title">关于</h3>
         <p class="about">
           <b>LiquidFont</b> 是一个面向 ColorOS 16 / 17 的字体替换模块，
-          内置五槽位配置与全液态玻璃 WebUI。字体文件由你自己提供，模块本身不附带任何商用字体。
+          内置五槽位配置、全液态玻璃 WebUI，以及遍黑体 / GNU Unifont 两套开源全字库兜底。
         </p>
         <dl class="kv">
-          <div><dt>版本</dt><dd id="about-ver">1.0.0</dd></div>
+          <div><dt>版本</dt><dd id="about-ver">1.1.0</dd></div>
           <div><dt>字体配置</dt><dd>ColorOS 17 (fonts.xml / base / ule)</dd></div>
           <div><dt>许可</dt><dd>GPL-3.0</dd></div>
         </dl>

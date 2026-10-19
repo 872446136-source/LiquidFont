@@ -24,6 +24,8 @@ LiquidFont 把「换字体」这件事做成了一件顺手的事：把 `.ttf` /
   顺便读出家族名、字重轴、字形数与中文 / 西文覆盖量。
 - **ColorOS 17 的完整映射** — 除 `SysFont-Regular` / `SysSans-En` 外，还覆盖 ColorOS 17
   新增的 `OPSans-En`，避免某些界面英文没换干净。
+- **内置全字库兜底** — 打包了遍黑体（CJK 扩展 B–J 全汉字）与 GNU Unifont 18.0.01
+  （整张 Unicode 码表），主字体没覆盖的生僻字、冷门文字不会再变成豆腐块；可在 WebUI 里一键关掉。
 - **安全** — 只做 overlay 挂载，删除模块即完整还原；提供一键还原与日志查看。
 
 | 槽位 | 作用 | 目标文件 |
@@ -33,6 +35,16 @@ LiquidFont 把「换字体」这件事做成了一件顺手的事：把 `.ttf` /
 | `en.ttf` | 西文与数字（可选） | `SysFont-Regular` `SysSans-En-Regular` `OPSans-En-Regular` `Roboto-Regular` |
 | `mono.ttf` | 等宽（可选） | `DroidSansMono` `CutiveMono` |
 | `emoji.ttf` | Emoji（可选） | `NotoColorEmoji` `NotoColorEmoji1`（其余留作缺字回退） |
+
+### 内置全字库（随包附带，不用选）
+
+| 字库 | 版本 | 落点 | 作用 |
+| --- | --- | --- | --- |
+| 遍黑体 Plangothic P1 / P2 | 2.9.5795 | `PlangothicP1.ttf` `PlangothicP2.ttf` | CJK 扩展 B–J 全部汉字，顶替系统里的旧版本 |
+| GNU Unifont / Unifont Upper | 18.0.01 | `LiquidFont-Unifont.otf` `LiquidFont-UnifontUpper.otf` | 整张 Unicode 码表（含 Plane 1–16），排在兜底链最后 |
+
+两个 Unifont 字族是**追加**到 `fonts.xml` 末尾的，排在所有系统字体之后——只接管前面没人认领的码位，
+不会抢走遍黑体、NotoColorEmoji 已经覆盖的字形。
 
 ## 安装
 
@@ -57,6 +69,8 @@ LiquidFont 把「换字体」这件事做成了一件顺手的事：把 `.ttf` /
   若确实要用（例如思源黑体全家桶），把 `hb-subset` 编译成 `tools/subset` 放进模块，
   `apply.sh` 会自动裁掉西文槽位的 CJK 字形（见 `tools/README.md`）。
 - 应用字体后必须**重启**，字体是开机时被系统读进缓存的。
+- 全字库兜底默认开启。关掉后重启即恢复系统原样；它不会覆盖你自己选的五槽位字体，
+  只影响主字体没覆盖到的字符。
 - 不同 ColorOS 版本的字体清单略有差异，`apply.sh` 只会写设备上真实存在的文件，
   不会往模块里塞用不上的副本。
 
@@ -69,6 +83,7 @@ LiquidFont/
 ├── apply.sh                    # 应用脚本：五槽位 → system/fonts（WebUI 也调用它）
 ├── uninstall.sh                # 卸载清理
 ├── FONTS/                      # 槽位目录（hans/hant/en/mono/emoji.ttf）
+├── FALLBACK/                   # 内置全字库（遍黑体 / Unifont + 各自许可证）
 ├── system/
 │   ├── etc/fonts.xml           # ColorOS 17 主字体配置
 │   └── system_ext/etc/
@@ -98,6 +113,9 @@ python build.py --no-zip   # 只做检查
   桌面没变」。模块直接带上这 4 份（`font_fallback.xml` 刷入时从设备复制，没有就用主配置兜底）。
 - **为什么用 overlay 而不是替换**：模块目录里的 `system/fonts/*.ttf` 由管理器挂载到
   真实路径，模块停用 / 卸载后挂载消失，系统字体自动回来，没有「刷坏回不去」的风险。
+- **全字库为什么要改 fonts.xml**：Unifont 是全新字库，系统里没有它的位置，只能在 `familyset`
+  末尾追加两个字族。追加在最后是刻意的——Android 按声明顺序找字，排最后意味着只有前面
+  所有字体都不认识的码位才会轮到它，属于纯增量，不会改变已有字形的渲染。
 - **WebUI 怎么把文件写进去**：KernelSU 只给了 `ksu.exec`，没有文件 API。所以前端把字体
   base64 分块（64 KB/块，避开 argv 128 KB 上限）用 `printf | base64 -d >>` 追加写，
   最后用 `wc -c` 校验字节数，不一致就报错。
@@ -112,8 +130,19 @@ python build.py --no-zip   # 只做检查
 ## 致谢
 
 - [FontMM](https://github.com/YuleBest/FontMM) — 五槽位思路与 ColorOS 字体配置的先行者。
+- [遍黑体 Plangothic](https://github.com/Fitzgerald-Porthmouth-Koenigsegg/Plangothic_Project) —
+  基于思源黑体、以中国大陆字形标准补全 CJK 扩展区，MIT / 思源黑体 OFL-1.1。
+- [GNU Unifont](https://unifoundry.com/unifont/) — Roman Czyborra、Paul Hardy 等人维护的
+  全 Unicode 覆盖点阵字库，OFL-1.1 + GPL-2.0-or-later（字体嵌入例外）。
 - 字体配置文件来自 ColorOS 17 系统镜像，版权归 OPPO / 各字体厂商所有，仅供个人折腾使用。
 
 ## 许可
 
-[GPL-3.0](LICENSE)。模块本身不附带任何字体文件。
+模块代码以 [GPL-3.0](LICENSE) 发布。
+
+`FALLBACK/` 里的两套字库按各自原许可分发，许可证原文随包附带：
+
+- `FALLBACK/LICENSE-Plangothic.txt` — 遍黑体，MIT（字体衍生自思源黑体，SIL OFL 1.1）
+- `FALLBACK/LICENSE-Unifont.txt` — GNU Unifont，SIL OFL 1.1 + GPL-2.0-or-later（含字体嵌入例外）
+
+`FONTS/` 下的五个槽位始终留空，用户自己放入的字体不随仓库分发。

@@ -1883,4 +1883,14 @@
     <family>
         <font weight="400" style="normal">UnicodiaSesh.ttf</font>
     </family>
+    <!-- LiquidFont: 内置全字库兜底（GNU Unifont 18.0.01）
+         放在整个 familyset 末尾，只接管前面所有字体都没有的码位，
+         不会抢走 Plangothic / NotoColorEmoji 已经覆盖的字形。 -->
+    <family>
+        <font weight="400" style="normal">LiquidFont-Unifont.otf</font>
+    </family>
+    <family>
+        <font weight="400" style="normal">LiquidFont-UnifontUpper.otf</font>
+    </family>
 </familyset>
+
