@@ -947,4 +947,5 @@
   });
 
   window.LF.app = { go, refresh, state };
+  window.LF.toast = toast;
 })();

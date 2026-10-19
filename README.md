@@ -28,6 +28,9 @@ LiquidFont 把「换字体」这件事做成了一件顺手的事：把 `.ttf` /
   （整张 Unicode 码表），主字体没覆盖的生僻字、冷门文字不会再变成豆腐块；可在 WebUI 里一键关掉。
 - **Play 商店也不放过** — 停用 Google Play 服务的可下载字体链路并清缓存，
   Play 商店 / Chrome / Gmail 的英文和数字才会真正跟着换（这几家原本绕开 `system/fonts`）。
+- **自带字体测试** — 字重九档、无衬线 / 衬线 / 等宽三族、可变字体滑杆，
+  以及 Unihan / Unicode 两种口径的覆盖率实测；覆盖率逐字比对渲染结果，
+  和 `Paint.hasGlyph` 一样走整条系统兜底链，不是读某个字体文件的 cmap。
 - **安全** — 只做 overlay 挂载，卸载时连 GMS 组件、元模块配置、挂载记录一起清干净；提供一键还原与日志查看。
 - **挂载点会伪装** — 交给元模块（mountify）整体挂载，挂载点数量回到厂商水平，
   来源目录改成看起来像 OEM 分区的名字，并清掉模块自己留下的命名痕迹。
@@ -191,9 +194,10 @@ LiquidFont/
 │       └── fonts_ule.xml       # 派生配置（ULE）
 ├── webroot/                    # WebUI（KernelSU 规范目录）
 │   ├── index.html
-│   └── assets/{style.css,app.js,bridge.js,fontinfo.js}
-├── tools/                      # 可选原生工具（subset）
-├── dev/shot.mjs                # 开发用：CDP 截图 / 量尺寸
+│   └── assets/{style.css,app.js,bridge.js,fontinfo.js,
+│               test.js,coverage.js,ucd.js}
+├── tools/                      # gen_ucd.py（生成 ucd.js）+ 可选原生工具（subset）
+├── dev/                        # 开发用：截图、缺字渲染探测、覆盖率基准测试
 └── build.py                    # 打包成可刷入 zip
 ```
 
@@ -252,6 +256,8 @@ python build.py --no-zip   # 只做检查
   基于思源黑体、以中国大陆字形标准补全 CJK 扩展区，MIT / 思源黑体 OFL-1.1。
 - [GNU Unifont](https://unifoundry.com/unifont/) — Roman Czyborra、Paul Hardy 等人维护的
   全 Unicode 覆盖点阵字库，OFL-1.1 + GPL-2.0-or-later（字体嵌入例外）。
+- [Font_Weight_Test](https://github.com/YuKongA/Font_Weight_Test-KMP) — YuKongA，
+  WebUI「测试」页的字重 / 字族 / 可变字体 / 覆盖率四组测试移植自它，Apache-2.0。
 - 字体配置文件来自 ColorOS 17 系统镜像，版权归 OPPO / 各字体厂商所有，仅供个人折腾使用。
 
 ## 许可

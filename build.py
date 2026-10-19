@@ -44,6 +44,8 @@ REQUIRED = [
     "META-INF/com/google/android/update-binary",
     "META-INF/com/google/android/updater-script",
     "webroot/index.html",
+    "webroot/assets/ucd.js",
+    "webroot/assets/coverage.js",
     "system/etc/fonts.xml",
     "system/system_ext/etc/fonts_base.xml",
     "system/system_ext/etc/fonts_ule.xml",
