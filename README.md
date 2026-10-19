@@ -1,11 +1,19 @@
 # LiquidFont
 
+[![Release](https://img.shields.io/github/v/release/872446136-source/LiquidFont?color=8b6bff&label=release)](https://github.com/872446136-source/LiquidFont/releases)
+[![License](https://img.shields.io/badge/license-GPL--3.0-22d3ee)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Magisk%20%7C%20KernelSU-ff5d95)](https://github.com/872446136-source/LiquidFont)
+
 > ColorOS 16 / 17 字体替换模块 · 五槽位独立配置 · 全液态玻璃 WebUI
 
 LiquidFont 把「换字体」这件事做成了一件顺手的事：把 `.ttf` / `.otf` 丢进 WebUI，
 选好槽位，点一下应用，重启。没有命令行，没有编辑器，也不用记 fonts.xml 里那些字族名。
 
 ![概览](docs/screenshots/home-dark.png)
+
+| 槽位 | 实时预览 | 浅色主题 |
+| --- | --- | --- |
+| ![槽位](docs/screenshots/slots-dark.png) | ![预览](docs/screenshots/preview-dark.png) | ![浅色](docs/screenshots/home-light.png) |
 
 ## 特性
 
