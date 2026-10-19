@@ -22,9 +22,9 @@ LiquidFont 把「换字体」这件事做成了一件顺手的事：把 `.ttf` /
 | --- | --- | --- |
 | `hans.ttf` | 简体中文（必选） | `SysSans-Hans-Regular` `SysFont-Hans-Regular` `SysFont-Static-Regular` `SysFont-Myanmar` |
 | `hant.ttf` | 繁体中文（可选） | `SysSans-Hant-Regular` `SysFont-Hant-Regular` |
-| `en.ttf` | 西文与数字（可选） | `SysFont-Regular` `SysSans-En-Regular` `OPSans-En-Regular` |
+| `en.ttf` | 西文与数字（可选） | `SysFont-Regular` `SysSans-En-Regular` `OPSans-En-Regular` `Roboto-Regular` |
 | `mono.ttf` | 等宽（可选） | `DroidSansMono` `CutiveMono` |
-| `emoji.ttf` | Emoji（可选） | `NotoColorEmoji` |
+| `emoji.ttf` | Emoji（可选） | `NotoColorEmoji` `NotoColorEmoji1`（其余留作缺字回退） |
 
 ## 安装
 
@@ -49,6 +49,8 @@ LiquidFont 把「换字体」这件事做成了一件顺手的事：把 `.ttf` /
   若确实要用（例如思源黑体全家桶），把 `hb-subset` 编译成 `tools/subset` 放进模块，
   `apply.sh` 会自动裁掉西文槽位的 CJK 字形（见 `tools/README.md`）。
 - 应用字体后必须**重启**，字体是开机时被系统读进缓存的。
+- 不同 ColorOS 版本的字体清单略有差异，`apply.sh` 只会写设备上真实存在的文件，
+  不会往模块里塞用不上的副本。
 
 ## 目录结构
 
