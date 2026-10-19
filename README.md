@@ -55,7 +55,10 @@ LiquidFont 把「换字体」这件事做成了一件顺手的事：把 `.ttf` /
 3. 重启，打开模块的 WebUI（KernelSU 系自带；Magisk 需 WebUI X 或 KsuWebUI Standalone）；
 4. 在「槽位」页选好字体 → 「应用字体」→ 再重启一次。
 
-> 安装后建议在系统设置里把字体选成 **Roboto**，这样字重映射才和 fonts.xml 对得上。
+> 设置里保持「系统默认字体」就行，不用特意切到 Roboto。ColorOS 的 `sans-serif` 首位是
+> `SysFont-Regular.ttf`（OPPO Sans 可变字体），而且配置里有 `<alias name="Roboto" to="sans-serif"/>`——
+> 连显式请求 Roboto 的应用都会被导到这条链上。模块已覆盖 `sans-serif` / `sys-sans-en` /
+> `op-sans-en` / `Roboto-Regular` 四条西文路径，切不切字体都一样。
 
 ### 环境要求
 
