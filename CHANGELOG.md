@@ -1,5 +1,19 @@
 # 更新日志
 
+## v1.3.1
+
+卸载不留尾巴。
+
+- 卸载时把模块目录之外的东西也清掉：mountify 的配置还原成加固前的样子并删除
+  `config.sh.bak`、从 mountify 的 `skipped_modules` 里移除本模块、
+  删掉 OTA 暂存的 `/data/adb/modules_update/LiquidFont`
+- 模块目录内的 `FONTS` / `FALLBACK` / `system` / `webroot` / `tools` / `META-INF` /
+  `CONFIG`、日志与 `skip_mount` 等标记全部清除
+- 修掉一个会让 GMS 组件永久停用的时序问题：Magisk 在开机阶段跑卸载脚本，
+  那时 `pm` 还没起来，`gms.sh off` 会静默失败。现在检测到这种情况会往
+  `/data/adb/service.d/` 放一个一次性脚本，开机后补做恢复并自删
+- 恢复 GMS 组件不再依赖标记文件，`pm enable` 对本来就启用的组件是无害的
+
 ## v1.3.0
 
 把挂载痕迹藏起来。

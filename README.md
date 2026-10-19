@@ -28,7 +28,7 @@ LiquidFont 把「换字体」这件事做成了一件顺手的事：把 `.ttf` /
   （整张 Unicode 码表），主字体没覆盖的生僻字、冷门文字不会再变成豆腐块；可在 WebUI 里一键关掉。
 - **Play 商店也不放过** — 停用 Google Play 服务的可下载字体链路并清缓存，
   Play 商店 / Chrome / Gmail 的英文和数字才会真正跟着换（这几家原本绕开 `system/fonts`）。
-- **安全** — 只做 overlay 挂载，删除模块即完整还原；提供一键还原与日志查看。
+- **安全** — 只做 overlay 挂载，卸载时连 GMS 组件、元模块配置、挂载记录一起清干净；提供一键还原与日志查看。
 - **挂载点会伪装** — 交给元模块（mountify）整体挂载，挂载点数量回到厂商水平，
   来源目录改成看起来像 OEM 分区的名字，并清掉模块自己留下的命名痕迹。
 
@@ -128,6 +128,25 @@ mountify 的 `mountify_copy()` 里有两段相反的判断：
   收益很低（几乎没人扫这个），风险不小，没做。
 - **`/data/adb` 目录**：没有 root 读不到，不构成暴露面。
 - **不装 Zygisk 提供者**：挂载对**所有**应用可见。按应用卸载是 Zygisk 层的能力，模块替代不了。
+
+## 卸载
+
+在管理器里卸载即可，模块会把自己留下的东西全部清掉：
+
+- 五槽位字体与全字库的 overlay（`system/fonts` 下的副本）
+- `FONTS/`、`FALLBACK/`、`CONFIG/`、`webroot/`、`system/`、`tools/`、`META-INF/`
+- 应用日志、子集缓存、`skip_mount` / `disable` / `remove` 等标记文件
+- 被「Play 商店字体接管」停用的 GMS 组件（**会自动放回去**）
+- mountify 的配置（还原成加固前的样子，并删掉我们留下的 `config.sh.bak`）
+- mountify `skipped_modules` 里的本模块记录
+- OTA 暂存的 `/data/adb/modules_update/LiquidFont`
+
+一个时序细节：Magisk 是在**下次开机**的 post-fs-data 阶段执行卸载脚本的，那时 `pm` / `am`
+还没起来，直接调用会静默失败、组件就永远停用了。所以检测到这种情况时，会往
+`/data/adb/service.d/` 放一个一次性脚本，等系统起来再恢复 GMS 组件，执行完自删。
+KernelSU 是即时卸载，当场做完。
+
+卸载后需要**重启**，字体才会回到系统默认——挂载在重启前仍然有效。
 
 ## 目录结构
 
