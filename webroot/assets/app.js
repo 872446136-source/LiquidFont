@@ -757,9 +757,21 @@
       [0x323b0, 'U+323B0 扩展 J']
     ];
 
+    // 大字预览：[码位, 标签, 是否对照组]
+    // 对照组是楔形文字，Unifont 和遍黑体都没有，本来就该是方框。
+    const PREVIEW_GLYPHS = [
+      [0x20000, '扩展 B'],
+      [0x2a6df, '扩展 B 末'],
+      [0x2ebf0, '扩展 I'],
+      [0x30ede, '扩展 G'],
+      [0x323b0, '扩展 J'],
+      [0x12000, '对照·楔形', true]
+    ];
+
     function renderGlyphTest() {
       const list = $('#glyph-list');
       const tip = $('#glyph-tip');
+      const grid = $('#glyph-grid');
       if (!list) return;
 
       // 基准用 U+12000（楔形文字）：遍黑体和 Unifont 都没有它，系统里也几乎没有字体覆盖，
@@ -785,10 +797,19 @@
       list.innerHTML = rows.join('');
       list.hidden = false;
 
+      // 大字直接画出来：方框和真字形，肉眼一眼就能分清，不依赖任何判定逻辑
+      if (grid) {
+        grid.innerHTML = PREVIEW_GLYPHS.map(([cp, label, ctrl]) =>
+          '<div class="glyph-cell' + (ctrl ? ' ctrl' : '') + '"><b>' +
+          esc(String.fromCodePoint(cp)) + '</b><span>' + esc(label) + '</span></div>'
+        ).join('');
+        grid.hidden = false;
+      }
+
       tip.hidden = false;
       tip.textContent = reliable
-        ? '这一栏用 canvas 实际渲染，量的是「当前系统字体链」——和测试 App 只量单个字体文件不是一回事。'
-        : '这台设备的缺字方框画法不统一，这一栏无法判定，看上面诊断报告里的挂载与清单状态即可。';
+        ? '上面是实际渲染结果，量的是「当前系统字体链」——和测试 App 只量单个字体文件不是一回事。'
+        : '这台设备的缺字方框画法不统一，自动判定不可用；直接看上面的大字：有笔画就是生效，空心方框就是没生效。';
     }
 
     $('#doc-btn').addEventListener('click', async () => {

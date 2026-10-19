@@ -860,6 +860,39 @@ html[data-theme="light"] .sw i {
 }
 html[data-theme="light"] .doc { background: rgba(20, 20, 24, .05); }
 
+/* 兜底大字预览：方框和真字形，肉眼一眼分得清 */
+.glyph-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+.glyph-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 4px 7px;
+  border-radius: var(--r-md);
+  background: rgba(0, 0, 0, .2);
+}
+.glyph-cell b {
+  font-family: sans-serif;
+  font-weight: 400;
+  font-size: 30px;
+  line-height: 1.15;
+}
+.glyph-cell span {
+  font-size: 9px;
+  opacity: .62;
+}
+.glyph-cell.ctrl {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14);
+}
+html[data-theme="light"] .glyph-cell { background: rgba(20, 20, 24, .05); }
+html[data-theme="light"] .glyph-cell.ctrl { background: transparent; box-shadow: inset 0 0 0 1px rgba(20, 20, 24, .14); }
+
 /* ───────────── 底部导航 ───────────── */
 .dock {
   position: absolute;
