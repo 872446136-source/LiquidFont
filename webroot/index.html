@@ -217,8 +217,13 @@ Liquid Glass 0123456789
           兜底字体挂载后到底有没有、字体清单有没有带上字族、末尾还有哪些可用的落点，
           一次全打出来。开关开了还是缺字，先看这里。
         </p>
-        <button class="btn ghost wide" id="doc-btn" style="margin-top:12px">生成诊断报告</button>
+        <div class="row" style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn ghost" id="doc-btn" style="flex:1">生成诊断报告</button>
+          <button class="btn ghost" id="doc-copy" style="flex:0 0 82px" disabled>复制</button>
+        </div>
         <pre class="doc" id="doc-box" style="margin-top:12px" hidden></pre>
+        <dl class="kv" id="glyph-list" style="margin-top:12px" hidden></dl>
+        <p class="hint dim" id="glyph-tip" style="margin-top:8px" hidden></p>
       </div>
 
       <div class="card glass ring reveal" style="--i:6">
@@ -238,7 +243,7 @@ Liquid Glass 0123456789
           内置五槽位配置、全液态玻璃 WebUI，以及遍黑体 / GNU Unifont 两套开源全字库兜底。
         </p>
         <dl class="kv">
-          <div><dt>版本</dt><dd id="about-ver">1.5.1</dd></div>
+          <div><dt>版本</dt><dd id="about-ver">1.5.2</dd></div>
           <div><dt>字体配置</dt><dd>ColorOS 17 (fonts.xml / base / ule)</dd></div>
           <div><dt>许可</dt><dd>GPL-3.0</dd></div>
         </dl>

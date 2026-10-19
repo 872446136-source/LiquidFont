@@ -696,8 +696,94 @@
       box.textContent = await B.lastLog();
     });
 
+    /* ───────── 诊断 ───────── */
+    // WebView 里 navigator.clipboard 常被拒，退回 textarea + execCommand
+    async function copyText(text) {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+          return true;
+        }
+      } catch (e) { /* 落到下面 */ }
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0';
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, ta.value.length);
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    // 用 canvas 把码位画出来，和「确定没有字形」的码位比像素。
+    // 这是唯一能验证「系统兜底链到底认不认这份字体」的办法：
+    // 文件在不在、清单有没有引用，都不等于渲染时真的用上了。
+    function glyphSig(cp) {
+      const c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 64;
+      const g = c.getContext('2d', { willReadFrequently: true });
+      g.clearRect(0, 0, 64, 64);
+      g.fillStyle = '#000';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.font = '48px sans-serif';
+      try {
+        g.fillText(String.fromCodePoint(cp), 32, 32);
+      } catch (e) {
+        return 'err';
+      }
+      const d = g.getImageData(0, 0, 64, 64).data;
+      let h = 0;
+      let ink = 0;
+      for (let i = 3; i < d.length; i += 4) {
+        if (d[i] > 8) ink++;
+        h = (h * 31 + d[i]) | 0;
+      }
+      return h + ':' + ink;
+    }
+
+    const GLYPH_TESTS = [
+      [0x20000, 'U+20000 扩展 B'],
+      [0x2a6df, 'U+2A6DF 扩展 B 末'],
+      [0x2ebf0, 'U+2EBF0 扩展 I'],
+      [0x30ede, 'U+30EDE 扩展 G'],
+      [0x323b0, 'U+323B0 扩展 J'],
+      [0x12000, 'U+12000 楔形文字']
+    ];
+
+    function renderGlyphTest() {
+      const list = $('#glyph-list');
+      const tip = $('#glyph-tip');
+      if (!list) return;
+      // 两个必定没有字形的码位（Unicode 非字符）。两张图一样才说明
+      // 拿到的是统一的豆腐块，比对才可信。
+      const ref = glyphSig(0x10ffff);
+      const ref2 = glyphSig(0x10fffe);
+      const reliable = ref === ref2 && ref !== 'err';
+
+      list.innerHTML = GLYPH_TESTS.map(([cp, label]) => {
+        const has = glyphSig(cp) !== ref;
+        return '<div><dt>' + esc(label) + '</dt><dd class="' + (has ? '' : 'warn') + '">' +
+          (has ? '✓ 有字形' : '✗ 缺字') + '</dd></div>';
+      }).join('');
+      list.hidden = false;
+
+      tip.hidden = false;
+      tip.textContent = reliable
+        ? '这一栏用 canvas 实际渲染，量的是「当前系统字体链」——和测试 App 只量单个字体文件不是一回事。'
+        : '豆腐块基准不稳定，这一栏仅供参考。';
+    }
+
     $('#doc-btn').addEventListener('click', async () => {
       const btn = $('#doc-btn');
+      const copyBtn = $('#doc-copy');
       const box = $('#doc-box');
       const chip = $('#doc-chip');
       box.hidden = false;
@@ -710,13 +796,22 @@
         box.textContent = r.out || '（无输出）';
         chip.textContent = r.ok ? '已生成' : '有异常';
         if (!r.ok) chip.classList.add('warn');
+        copyBtn.disabled = !r.out;
       } catch (e) {
         box.textContent = '生成失败：' + (e.message || e);
         chip.textContent = '失败';
         chip.classList.add('warn');
       } finally {
         btn.disabled = false;
+        renderGlyphTest();
       }
+    });
+
+    $('#doc-copy').addEventListener('click', async () => {
+      const txt = $('#doc-box').textContent || '';
+      if (!txt) return;
+      const ok = await copyText(txt);
+      toast(ok ? '诊断报告已复制' : '复制失败，请长按选择');
     });
 
     const bindSwitch = (sel, fn) => {

@@ -1,7 +1,7 @@
 id=LiquidFont
 name=LiquidFont 液态玻璃字体
-version=1.5.1
-versionCode=10510
+version=1.5.2
+versionCode=10520
 author=LiquidFont
 description=ColorOS 17 字体替换模块 · 五槽位 + 全字库兜底（Unihan 全覆盖）+ Play 商店字体接管 + 挂载隐藏 · 全液态玻璃 WebUI
 updateJson=https://raw.githubusercontent.com/872446136-source/LiquidFont/main/update.json
