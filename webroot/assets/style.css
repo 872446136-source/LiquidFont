@@ -608,6 +608,8 @@ code {
 html[data-theme="light"] .chip.on { color: #0f8a53; background: rgba(16, 160, 92, .12); }
 .chip.warn { color: #f5b544; background: rgba(245, 181, 68, .15); }
 html[data-theme="light"] .chip.warn { color: #a4650b; background: rgba(214, 143, 30, .14); }
+.kv dd.warn { color: #f5b544; }
+html[data-theme="light"] .kv dd.warn { color: #a4650b; }
 
 .slot-desc {
   margin: 4px 0 0;

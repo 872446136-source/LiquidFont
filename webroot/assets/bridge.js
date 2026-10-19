@@ -209,6 +209,7 @@
         rom: '演示模式 · 未连接设备',
         fallback: fbOn ? 'idle' : 'off',
         fbVersions: { plangothic: '2.9.5795', unifont: '18.0.01' },
+        xml: { fonts: 'on', fallback: 'on', base: 'on', ule: 'on', patched: 4, total: 4, fmgr: 'absent' },
         gms: (() => {
           const on = localStorage.getItem('lf.gms') === 'on';
           return { flag: on ? 'on' : 'off', state: on ? 'taken' : 'normal' };
@@ -237,6 +238,8 @@
     const fbVersions = { plangothic: '', unifont: '' };
     const gms = { flag: 'off', state: 'missing' };
     const hide = { root: '', meta: 'none', metamode: 'none', fake: '-', dev: '-', mounts: '-', zygisk: 'none', legacy: 0, state: 'basic' };
+    // 字体清单注入状态：on=已带兜底字族 raw=原样 none=设备没有
+    const xml = { fonts: '', fallback: '', base: '', ule: '', patched: 0, total: 0, fmgr: '' };
     r.out.split('\n').forEach((line) => {
       const t = line.trim();
       if (!t) return;
@@ -256,6 +259,14 @@
         }
         return;
       }
+      if (t.startsWith('xml.')) {
+        const k = t.slice(4), i = k.indexOf('=');
+        if (i > 0) {
+          const key = k.slice(0, i), val = k.slice(i + 1);
+          xml[key] = key === 'patched' || key === 'total' ? +val || 0 : val;
+        }
+        return;
+      }
       const m = /^slot\.(\w+)=(set|empty)$/.exec(t);
       if (m) return void (slots[m[1]] = slots[m[1]] || { set: false, size: 0 }, (slots[m[1]].set = m[2] === 'set'));
       const n = /^size\.(\w+)=(\d+)$/.exec(t);
@@ -264,7 +275,7 @@
     });
     return {
       mode: missing ? 'missing' : 'native',
-      slots, applied, rom, fallback, fbVersions, gms, hide,
+      slots, applied, rom, fallback, fbVersions, gms, hide, xml,
       // exec 同步抛异常 = WebUI 桥的调用形式不对，所有读写都会失败
       execOk: r.code !== -2,
       execErr: r.code === -2 ? r.err : '',

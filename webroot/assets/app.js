@@ -33,6 +33,7 @@
     fbVersions: { plangothic: '', unifont: '' },
     gms: { flag: 'off', state: 'missing' },
     hide: { root: '', meta: 'none', metamode: 'none', fake: '-', dev: '-', zygisk: 'none', legacy: 0, state: 'basic' },
+    xml: { fonts: '', fallback: '', base: '', ule: '', patched: 0, total: 0, fmgr: '' },
     mode: B.MODE,
     execOk: true,
     execErr: '',
@@ -237,6 +238,29 @@
     $('#env-bridge').textContent = state.mode === 'demo'
       ? '演示模式'
       : (!state.execOk ? '不可用' : (BRIDGE_LABEL[sid] || sid || '—'));
+
+    // 字体清单：Unifont 是新增文件名，靠 fonts.xml / font_fallback.xml 里的
+    // <family> 引用才生效。这里直接显示注入了几个，缺了就是开关开了也没用。
+    const xel = $('#env-xml');
+    if (xel) {
+      const x = state.xml || {};
+      const keys = ['fonts', 'fallback', 'base', 'ule'];
+      const exist = keys.filter((k) => x[k] === 'on' || x[k] === 'raw');
+      const on = keys.filter((k) => x[k] === 'on').length;
+      const total = x.total || exist.length;
+      xel.classList.remove('warn');
+      if (state.mode === 'demo') {
+        xel.textContent = '演示模式';
+      } else if (!total) {
+        xel.textContent = '未检测到';
+        xel.classList.add('warn');
+      } else if (on >= total) {
+        xel.textContent = total + '/' + total + ' 已注入';
+      } else {
+        xel.textContent = on + '/' + total + ' 已注入 · 缺 ' + (total - on);
+        xel.classList.add('warn');
+      }
+    }
     if (!state.execOk) {
       $('#sys-line').textContent = 'WebUI 接口调用失败';
       return;
@@ -268,6 +292,18 @@
       missing: '当前版本未内置全字库'
     };
     $('#fb-state').textContent = map[state.fallback] || '—';
+
+    // 覆盖率来自 cmap 实测，不是估算：四份字库并集 191,389 个码位，
+    // Unihan（Unicode 17.0 汉字区）103,386 / 103,389。
+    const cov = $('#fb-cov');
+    if (cov) {
+      const x = state.xml || {};
+      const notInjected = ['fonts', 'fallback', 'base', 'ule']
+        .filter((k) => x[k] === 'raw').length;
+      cov.textContent = notInjected
+        ? '汉字覆盖 103,386 / 103,389 · 但字体清单还没注入兜底字族，Unifont 目前不生效'
+        : '汉字覆盖 103,386 / 103,389（Unihan 17.0）· 全码位并集 191,389';
+    }
   }
 
   async function toggleFallback() {
@@ -414,6 +450,7 @@
       state.fbVersions = st.fbVersions || state.fbVersions;
       state.gms = st.gms || state.gms;
       state.hide = st.hide || state.hide;
+      state.xml = st.xml || state.xml;
       state.execOk = st.execOk !== false;
       state.execErr = st.execErr || '';
       renderAll();

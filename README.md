@@ -47,8 +47,28 @@ LiquidFont 把「换字体」这件事做成了一件顺手的事：把 `.ttf` /
 | 遍黑体 Plangothic P1 / P2 | 2.9.5795 | `PlangothicP1.ttf` `PlangothicP2.ttf` | CJK 扩展 B–J 全部汉字，顶替系统里的旧版本 |
 | GNU Unifont / Unifont Upper | 18.0.01 | `SysFont-Unicode.otf` `SysFont-UnicodeExt.otf` | 整张 Unicode 码表（含 Plane 1–16），排在兜底链最后 |
 
-两个 Unifont 字族是**追加**到 `fonts.xml` 末尾的，排在所有系统字体之后——只接管前面没人认领的码位，
+两个 Unifont 字族是**追加**到字体清单末尾的，排在所有系统字体之后——只接管前面没人认领的码位，
 不会抢走遍黑体、NotoColorEmoji 已经覆盖的字形。
+
+按 `cmap` 表实测的覆盖（不是估算）：
+
+| 字库 | 码位总数 | Unihan 汉字区 |
+| --- | --- | --- |
+| 遍黑体 P1 | 65,440 | 63,453 |
+| 遍黑体 P2 | 42,152 | 14,112 |
+| Unifont | 58,910 | 30,301 |
+| Unifont Upper | 57,728 | 7,677 |
+| **四份并集** | **191,389** | **103,386 / 103,389** |
+
+汉字区基本打满，剩下那 3 个是 Unicode 17.0 新增、遍黑体还没跟上的。Unifont 顶不上的
+只有楔形文字、埃及圣书体这类冷门区块（Unicode 15.1 已分配码位里缺 3,205 个，占 2.2%）。
+
+> ⚠️ 生效方式不一样，这点很关键：
+> 遍黑体是**同名覆盖**系统已有的 `PlangothicP1/P2.ttf`，系统清单本来就引用着它们，所以天然生效；
+> Unifont 是**新文件名**，必须在字体清单里有一条 `<family>` 引用才会被加载。
+> 而 `/system/etc/fonts.xml` 头部已标注 `DEPRECATED`，ColorOS 17 上真正生效的可能是
+> `/system/etc/font_fallback.xml`。模块会自己把这条引用注入进去（`xmlsync.sh`），
+> 刷完在 WebUI「运行环境 › 字体清单」能看到 `N/M 已注入`。
 
 ## 安装
 
@@ -156,8 +176,9 @@ KernelSU 是即时卸载，当场做完。
 ```
 LiquidFont/
 ├── module.prop                 # 模块信息
-├── customize.sh                # 刷入脚本：环境检查 / 继承旧字体 / 补齐派生 XML
+├── customize.sh                # 刷入脚本：环境检查 / 继承旧字体 / 注入字体清单
 ├── apply.sh                    # 应用脚本：五槽位 → system/fonts（WebUI 也调用它）
+├── xmlsync.sh                  # 把兜底字族注入到设备真正生效的字体清单
 ├── gms.sh                      # Play 商店字体接管：停用 GMS 字体服务 + 清缓存
 ├── hide.sh                     # 挂载隐藏：元模块配置加固 + 命名痕迹清理
 ├── uninstall.sh                # 卸载清理
@@ -189,7 +210,9 @@ python build.py --no-zip   # 只做检查
 
 - **为什么改 4 份 XML**：ColorOS 17 的字体由 `system/etc/fonts.xml` 与
   `system/system_ext/etc/fonts_{base,ule}.xml` 共同决定，只改一份会出现「设置里变了、
-  桌面没变」。模块直接带上这 4 份（`font_fallback.xml` 刷入时从设备复制，没有就用主配置兜底）。
+  桌面没变」。模块直接带上这 3 份，并在刷入时用 `xmlsync.sh` 给设备上真实存在的
+  `font_fallback.xml` 就地打补丁——`fonts.xml` 头部自己写着 `DEPRECATED`，
+  谁才是权威的那份，只有设备知道，所以「有哪份补哪份」比「猜哪份」可靠。
 - **为什么用 overlay 而不是替换**：模块目录里的 `system/fonts/*.ttf` 由管理器挂载到
   真实路径，模块停用 / 卸载后挂载消失，系统字体自动回来，没有「刷坏回不去」的风险。
 - **全字库为什么要改 fonts.xml**：Unifont 是全新字库，系统里没有它的位置，只能在 `familyset`
@@ -206,6 +229,13 @@ python build.py --no-zip   # 只做检查
 
 - 没有内置 Zygisk 字体预加载。被 DenyList / 隐藏应用列表「卸载」掉模块的应用，
   可能读不到字体而回退默认字体（FontMM 用原生 warmUpCache 解决，本模块暂未实现）。
+- 全字库也补不齐楔形文字（U+12000–U+1254F）、埃及圣书体（U+13000–U+1345F）、
+  安纳托利亚象形文字（U+14400–U+14646）这类冷门区块——Unifont 和遍黑体都没有，
+  得再挂一份 Noto Sans Cuneiform / Noto Sans Egyptian Hieroglyphs 才补得上。
+  Unicode 15.1 已分配码位里还差 3,205 个，占 2.2%。
+- 如果设备上存在 `/data/fonts/files/fonts.xml`（FontManager 的可更新字体配置），
+  它会被追加在系统清单之后。兜底字族排在系统清单末尾，因此会排在它前面，
+  少数情况下会抢走它本来能提供的字形。这个文件一般只在系统字体更新后才出现。
 - 不做可变字体 `wght` 轴重写。字体自带的字重轴如果与系统的 100–900 对不上，
   表现是粗细层次不自然，需要在字体侧处理。
 - WebUI 与管理器的桥接按 KernelSU 官方协议实现（回调传全局函数名），

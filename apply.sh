@@ -79,6 +79,11 @@ print_status() {
     if [ -f "$FB/VERSION" ]; then
         sed -n 's/^\(plangothic_version\|unifont_version\)=/fb.\1=/p' "$FB/VERSION"
     fi
+    # 字体配置注入状态：Unifont 靠 XML 引用生效，这里能直接看出有没有漏
+    if [ -f "$MODDIR/xmlsync.sh" ]; then
+        sh "$MODDIR/xmlsync.sh" --status "$MODDIR" 2>/dev/null
+    fi
+
     echo "moddir=$MODDIR"
 }
 
@@ -266,6 +271,11 @@ else
 fi
 
 echo "[*] 全字库兜底"
+# 先补 XML：设备上真正生效的字体清单可能不是 /system/etc/fonts.xml，
+# 老版本刷入的模块没有注入兜底字族，这里就地补一次（下次重启生效）。
+if [ -f "$MODDIR/xmlsync.sh" ]; then
+    sh "$MODDIR/xmlsync.sh" "$MODDIR" 2>/dev/null | grep -E '^\[' || true
+fi
 install_fallback
 
 # 字体文件权限：0644，属主 root

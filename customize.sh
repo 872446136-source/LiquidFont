@@ -112,15 +112,20 @@ IMPORT_OLD_FONTS() {
     done
 }
 
-# ---------- 字体配置：补齐派生 XML ----------
+# ---------- 字体配置：注入兜底字族 ----------
 # 模块内置 ColorOS 17 的 fonts.xml / fonts_base.xml / fonts_ule.xml。
-# font_fallback.xml 未内置，设备上有就沿用设备的，没有就用 fonts.xml 兜底。
+# 但 fonts.xml 头部已标注 DEPRECATED，ColorOS 17 上真正生效的可能是
+# /system/etc/font_fallback.xml —— 那份不内置，交给 xmlsync.sh 就地打补丁：
+# 设备上有几份就补几份，只在最后一个 </familyset> 前追加两条无名 family。
+#
+# 这一步是「全字库兜底」能不能生效的关键：
+#   遍黑体靠同名覆盖 PlangothicP1/P2 生效，不需要改 XML；
+#   Unifont 是新增文件名 SysFont-Unicode*.otf，必须靠 XML 引用，不注入就永远不生效。
 SYNC_XMLS() {
-    fb="$MODPATH/system/etc/font_fallback.xml"
-    if [ -f /system/etc/font_fallback.xml ]; then
-        cp -f /system/etc/font_fallback.xml "$fb" && log "已复制设备 font_fallback.xml"
+    if [ -f "$MODPATH/xmlsync.sh" ]; then
+        sh "$MODPATH/xmlsync.sh" "$MODPATH"
     else
-        cp -f "$MODPATH/system/etc/fonts.xml" "$fb" && log "设备无 font_fallback.xml，使用 fonts.xml 兜底"
+        warn "缺少 xmlsync.sh，全字库兜底可能不生效"
     fi
     chmod 0644 "$MODPATH/system/etc/"*.xml 2>/dev/null
     chmod 0644 "$MODPATH/system/system_ext/etc/"*.xml 2>/dev/null
