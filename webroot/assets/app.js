@@ -219,6 +219,24 @@
     $('#env-moddir').textContent = state.mode === 'demo' ? '—' : B.MODDIR;
     $('#env-rom').textContent = state.rom || '未知';
     $('#env-mode').textContent = state.mode === 'native' ? '原生' : '演示';
+
+    const BRIDGE_LABEL = {
+      cbname: '官方（函数名回调）',
+      cbname2: '官方（两参重载）',
+      cb2: '函数回调',
+      opts: '对象 options',
+      json: 'JSON options',
+      sync: '同步返回',
+      p2json: 'Promise（JSON）',
+      p2obj: 'Promise（对象）',
+      p1: 'Promise（单参）',
+      none: '不可用',
+      pending: '未探测'
+    };
+    const sid = B.execStyle ? B.execStyle() : '';
+    $('#env-bridge').textContent = state.mode === 'demo'
+      ? '演示模式'
+      : (!state.execOk ? '不可用' : (BRIDGE_LABEL[sid] || sid || '—'));
     if (!state.execOk) {
       $('#sys-line').textContent = 'WebUI 接口调用失败';
       return;

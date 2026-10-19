@@ -1,5 +1,14 @@
 # 更新日志
 
+## v1.3.5
+
+把桥接状态亮出来，方便定位问题。
+
+- 「运行环境」新增「WebUI 桥接」一行，显示实际探测到的调用形式：
+  官方（函数名回调）/ 官方（两参重载）/ 函数回调 / 对象 options / JSON options /
+  同步返回 / Promise 三变体 / 不可用
+- 接口调不通时这一行直接写「不可用」，不用再猜是权限问题还是桥接问题
+
 ## v1.3.4
 
 找到「Java exception was raised during method invocation」的真正原因了。

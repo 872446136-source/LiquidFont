@@ -133,16 +133,25 @@
 
   let execStyle = null;
   let execProbe = null;
+  let probeDone = false;
 
   async function probeStyle() {
     for (const s of EXEC_STYLES) {
       const r = await runOnce(s, 'echo lf-probe', 2000);
       if (/lf-probe/.test(r.out)) {
         execStyle = s;
+        probeDone = true;
         return s;
       }
     }
+    probeDone = true;
     return null;
+  }
+
+  // 给「运行环境」看的：当前用的是哪种调用形式，探不通就是 none
+  function execStyleId() {
+    if (execStyle) return execStyle.id;
+    return probeDone ? 'none' : 'pending';
   }
 
   async function exec(cmd, timeoutMs) {
@@ -417,7 +426,7 @@
   }
 
   global.LF = {
-    bridge: { MODE, MODDIR, status, write, readBytes, clear, clearAll, apply, lastLog, restore, setFallback, setGms, setHide, exec, toast },
+    bridge: { MODE, MODDIR, status, write, readBytes, clear, clearAll, apply, lastLog, restore, setFallback, setGms, setHide, exec, execStyle: execStyleId, toast },
     bytesToB64,
     b64ToBytes
   };
