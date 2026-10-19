@@ -1,5 +1,17 @@
 # 更新日志
 
+## v1.3.3
+
+修掉「写入失败：无法创建文件：Error invoking exec: Java exception was raised during method invocation」。
+
+- WebUI 与 Root 管理器的桥接改成自适应：先用 `echo lf-probe` 试三种调用形式
+  —— `exec(cmd, cb)` / `exec(cmd, {cwd}, cb)` / `exec(cmd, '{"cwd":...}', cb)`，
+  哪个能回包就固定用哪个
+- 之前写死三参对象形式，遇到只认两参（或只认 JSON 字符串）的管理器时，
+  Java 侧会直接抛异常，读写全部失败；界面还会显示成「等待配置」，看不出是接口问题
+- 接口调不通时标题栏会写「WebUI 接口调用失败」并弹出原始错误
+- 写文件失败区分「接口调不通」与「文件创建失败」两种原因
+
 ## v1.3.2
 
 大字体不再被拦在门外。

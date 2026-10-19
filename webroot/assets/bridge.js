@@ -36,10 +36,21 @@
     return out;
   }
 
-  // KernelSU 的 exec 有 Promise 与 callback 两代实现（SukiSU / KSU Next / Magisk WebUI X
-  // 又各有差异），这里同时兼容：先按 Promise 取，拿不到就等 callback，都没有则超时。
-  function exec(cmd, timeoutMs) {
-    if (!KSU) return Promise.resolve({ code: 0, out: '', err: '' });
+  // KernelSU 系的 WebUI 桥至少有三种调用形式：
+  //   exec(cmd, cb)                  老版 KernelSU / 部分独立 WebUI
+  //   exec(cmd, { cwd }, cb)         官方文档的形式
+  //   exec(cmd, '{"cwd":...}', cb)   把 options 当 JSON 字符串
+  // 传错形式时 Java 侧会抛 "Java exception was raised during method invocation"。
+  // 所以先用一条 echo 探一次，探到能用的形式就固定下来，后面全用它。
+  const EXEC_STYLES = [
+    { id: 'cb2', call: (cmd, cb) => KSU.exec(cmd, cb) },
+    { id: 'opts', call: (cmd, cb) => KSU.exec(cmd, { cwd: MODDIR }, cb) },
+    { id: 'json', call: (cmd, cb) => KSU.exec(cmd, JSON.stringify({ cwd: MODDIR }), cb) }
+  ];
+
+  // code === -2 表示「同步抛异常」，也就是调用形式不对，可以换一种再试；
+  // code === -1 表示超时，形式可能是对的但没回包，不能当作形式错误。
+  function runOnce(style, cmd, timeoutMs) {
     return new Promise((resolve) => {
       let settled = false;
       const timer = setTimeout(() => finish(-1, '', '执行超时'), timeoutMs || 120000);
@@ -54,18 +65,60 @@
         });
       }
       try {
-        const ret = KSU.exec(cmd, { cwd: MODDIR }, (errno, out, err) => finish(errno, out, err));
+        const ret = style.call(cmd, (errno, out, err) => finish(errno, out, err));
         if (ret && typeof ret.then === 'function') {
           ret.then((v) => {
             if (v && typeof v.errno === 'number') finish(v.errno, v.stdout, v.stderr);
+            else if (v && typeof v.code === 'number') finish(v.code, v.stdout || v.out, v.stderr || v.err);
           }, (e) => finish(-1, '', String((e && e.message) || e)));
         } else if (ret && typeof ret.errno === 'number') {
           finish(ret.errno, ret.stdout, ret.stderr);
+        } else if (typeof ret === 'string') {
+          finish(0, ret, '');
         }
       } catch (e) {
-        finish(-1, '', String((e && e.message) || e));
+        finish(-2, '', String((e && e.message) || e));
       }
     });
+  }
+
+  let execStyle = null;
+  let execProbe = null;
+
+  async function probeStyle() {
+    for (const s of EXEC_STYLES) {
+      const r = await runOnce(s, 'echo lf-probe', 2000);
+      if (/lf-probe/.test(r.out)) {
+        execStyle = s;
+        return s;
+      }
+    }
+    return null;
+  }
+
+  async function exec(cmd, timeoutMs) {
+    if (!KSU) return { code: 0, out: '', err: '' };
+
+    if (!execStyle) {
+      if (!execProbe) execProbe = probeStyle();
+      await execProbe;
+    }
+    // 三种形式都探不通：用默认形式试一次，不再每回轮询三遍
+    if (!execStyle) return runOnce(EXEC_STYLES[1], cmd, timeoutMs);
+
+    const r = await runOnce(execStyle, cmd, timeoutMs);
+    if (r.code !== -2) return r;
+
+    // 已选定的形式这次同步抛了，可能管理器换了实现，换其它形式再试并记住
+    for (const s of EXEC_STYLES) {
+      if (s === execStyle) continue;
+      const r2 = await runOnce(s, cmd, timeoutMs);
+      if (r2.code !== -2) {
+        execStyle = s;
+        return r2;
+      }
+    }
+    return r;
   }
 
   function readDemoMeta() {
@@ -148,7 +201,14 @@
       if (n) return void (slots[n[1]] && (slots[n[1]].size = +n[2]));
       if (t === 'applied=1') applied = true;
     });
-    return { mode: missing ? 'missing' : 'native', slots, applied, rom, fallback, fbVersions, gms, hide, raw: r.out };
+    return {
+      mode: missing ? 'missing' : 'native',
+      slots, applied, rom, fallback, fbVersions, gms, hide,
+      // exec 同步抛异常 = WebUI 桥的调用形式不对，所有读写都会失败
+      execOk: r.code !== -2,
+      execErr: r.code === -2 ? r.err : '',
+      raw: r.out
+    };
   }
 
   /* ───────── 写入字体 ───────── */
@@ -167,7 +227,11 @@
     const path = `${MODDIR}/FONTS/${slot}.ttf`;
     await exec(`mkdir -p ${MODDIR}/FONTS`);
     const created = await exec(`: > '${path}'`);
-    if (created.code !== 0) throw new Error('无法创建文件：' + (created.err || created.code));
+    if (created.code !== 0) {
+      throw new Error(created.code === -2
+        ? 'WebUI 无法调用 Root 接口（' + (created.err || '未知错误') + '）'
+        : '无法创建文件：' + (created.err || created.code));
+    }
 
     const buf = preloaded ? new Uint8Array(preloaded) : new Uint8Array(await file.arrayBuffer());
     let sent = 0;

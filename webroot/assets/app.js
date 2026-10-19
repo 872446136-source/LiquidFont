@@ -34,6 +34,8 @@
     gms: { flag: 'off', state: 'missing' },
     hide: { root: '', meta: 'none', metamode: 'none', fake: '-', dev: '-', zygisk: 'none', legacy: 0, state: 'basic' },
     mode: B.MODE,
+    execOk: true,
+    execErr: '',
     slots: {},
     meta: {},
     faces: {},
@@ -217,6 +219,10 @@
     $('#env-moddir').textContent = state.mode === 'demo' ? '—' : B.MODDIR;
     $('#env-rom').textContent = state.rom || '未知';
     $('#env-mode').textContent = state.mode === 'native' ? '原生' : '演示';
+    if (!state.execOk) {
+      $('#sys-line').textContent = 'WebUI 接口调用失败';
+      return;
+    }
     $('#sys-line').textContent =
       state.mode === 'native'
         ? (state.rom || 'ColorOS') + ' · ' + (state.applied ? '字体已应用' : '等待配置')
@@ -376,8 +382,14 @@
       state.fbVersions = st.fbVersions || state.fbVersions;
       state.gms = st.gms || state.gms;
       state.hide = st.hide || state.hide;
+      state.execOk = st.execOk !== false;
+      state.execErr = st.execErr || '';
       renderAll();
-      if (!quiet) toast(state.mode === 'demo' ? '演示模式：操作不会写入设备' : '状态已刷新');
+      if (!state.execOk) {
+        toast('Root 接口调用失败：' + (state.execErr || '未知错误'), 'err');
+      } else if (!quiet) {
+        toast(state.mode === 'demo' ? '演示模式：操作不会写入设备' : '状态已刷新');
+      }
     } catch (e) {
       toast('读取状态失败：' + (e.message || e), 'err');
     }
