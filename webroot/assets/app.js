@@ -754,31 +754,41 @@
       [0x2a6df, 'U+2A6DF 扩展 B 末'],
       [0x2ebf0, 'U+2EBF0 扩展 I'],
       [0x30ede, 'U+30EDE 扩展 G'],
-      [0x323b0, 'U+323B0 扩展 J'],
-      [0x12000, 'U+12000 楔形文字']
+      [0x323b0, 'U+323B0 扩展 J']
     ];
 
     function renderGlyphTest() {
       const list = $('#glyph-list');
       const tip = $('#glyph-tip');
       if (!list) return;
-      // 两个必定没有字形的码位（Unicode 非字符）。两张图一样才说明
-      // 拿到的是统一的豆腐块，比对才可信。
-      const ref = glyphSig(0x10ffff);
-      const ref2 = glyphSig(0x10fffe);
-      const reliable = ref === ref2 && ref !== 'err';
 
-      list.innerHTML = GLYPH_TESTS.map(([cp, label]) => {
-        const has = glyphSig(cp) !== ref;
-        return '<div><dt>' + esc(label) + '</dt><dd class="' + (has ? '' : 'warn') + '">' +
-          (has ? '✓ 有字形' : '✗ 缺字') + '</dd></div>';
-      }).join('');
+      // 基准用 U+12000（楔形文字）：遍黑体和 Unifont 都没有它，系统里也几乎没有字体覆盖，
+      // 所以它画出来一定是豆腐块。拿它当基准比拿非字符靠谱——
+      // 非字符有的渲染器直接画空白，会把所有缺字都判成「有字形」。
+      // 再用两个校验确认基准可信：另一个缺字码位必须同图，拉丁字母 'A' 必须不同图。
+      const ref = glyphSig(0x12000);
+      const reliable =
+        ref !== 'err' &&
+        glyphSig(0x2ffff) === ref &&
+        glyphSig(0x41) !== ref;
+
+      const rows = GLYPH_TESTS.map(([cp, label]) => {
+        const has = reliable ? glyphSig(cp) !== ref : null;
+        const text = has === null ? '? 无法判定' : has ? '✓ 有字形' : '✗ 缺字';
+        return '<div><dt>' + esc(label) + '</dt><dd class="' + (has === false ? 'warn' : '') + '">' +
+          text + '</dd></div>';
+      });
+      rows.push(
+        '<div><dt>U+12000 楔形文字（基准）</dt><dd class="dim">' +
+          (reliable ? '豆腐块' : '基准不可靠') + '</dd></div>'
+      );
+      list.innerHTML = rows.join('');
       list.hidden = false;
 
       tip.hidden = false;
       tip.textContent = reliable
         ? '这一栏用 canvas 实际渲染，量的是「当前系统字体链」——和测试 App 只量单个字体文件不是一回事。'
-        : '豆腐块基准不稳定，这一栏仅供参考。';
+        : '这台设备的缺字方框画法不统一，这一栏无法判定，看上面诊断报告里的挂载与清单状态即可。';
     }
 
     $('#doc-btn').addEventListener('click', async () => {

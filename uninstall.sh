@@ -22,6 +22,9 @@ MODDIR="${MODDIR:-/data/adb/modules/LiquidFont}"
 
 MODID="LiquidFont"
 MOUNTIFY_DIR="/data/adb/mountify"
+# 持久状态目录（GMS 接管标记等）。放在模块目录之外，刷版本不会丢，
+# 卸载时必须一起清掉，否则就是残留。
+LF_STATE="/data/adb/LiquidFont"
 GMS_PKG="com.google.android.gms"
 GMS_FONTS="$GMS_PKG/com.google.android.gms.fonts.provider.FontsProvider"
 GMS_SCHED="$GMS_PKG/com.google.android.gms.fonts.update.UpdateSchedulerService"
@@ -58,7 +61,7 @@ EOS
 if [ -f "$MODDIR/gms.sh" ] && pm_ready; then
     MODDIR="$MODDIR" sh "$MODDIR/gms.sh" off >/dev/null 2>&1 &&
         ok "已恢复 GMS 字体服务"
-elif [ -f "$MODDIR/CONFIG/gms-takeover" ]; then
+elif [ -f "$LF_STATE/gms-takeover" ] || [ -f "$MODDIR/CONFIG/gms-takeover" ]; then
     if defer_gms; then
         ok "系统服务未就绪，已安排开机后恢复 GMS 字体服务"
     else
@@ -111,6 +114,14 @@ done
 rm -f "$MODDIR/skip_mount" "$MODDIR/skip_mountify" \
     "$MODDIR/disable" "$MODDIR/remove" \
     "$MODDIR"/*.log "$MODDIR"/*.lf-tmp 2>/dev/null
+
+# ---------- 6. 持久状态目录 ----------
+# /data/adb/LiquidFont 是我们自己的状态目录（GMS 接管标记等），
+# 管理器不会删它，留着就是一条痕迹。
+if [ -d "$LF_STATE" ]; then
+    rm -rf "$LF_STATE" 2>/dev/null &&
+        ok "已清除状态目录 $LF_STATE"
+fi
 
 # ---------- 收尾 ----------
 # 剩下的只有脚本和 module.prop，管理器会把整个目录一起删掉。
