@@ -36,16 +36,65 @@
     return out;
   }
 
-  // KernelSU 系的 WebUI 桥至少有三种调用形式：
-  //   exec(cmd, cb)                  老版 KernelSU / 部分独立 WebUI
-  //   exec(cmd, { cwd }, cb)         官方文档的形式
-  //   exec(cmd, '{"cwd":...}', cb)   把 options 当 JSON 字符串
-  // 传错形式时 Java 侧会抛 "Java exception was raised during method invocation"。
-  // 所以先用一条 echo 探一次，探到能用的形式就固定下来，后面全用它。
+  // KernelSU 的原生桥（WebViewInterface.kt）只有这三个签名，参数**全是 String**：
+  //   fun exec(cmd: String): String
+  //   fun exec(cmd: String, callbackFunc: String)
+  //   fun exec(cmd: String, options: String?, callbackFunc: String)
+  // 官方 kernelsu JS 库的用法是：先在 window 上挂一个全局函数，
+  // 再把**函数名**当字符串传进去，管理器用 `javascript: name(errno, stdout, stderr)` 回调。
+  //
+  // 直接传函数对象或对象字面量，WebView 转不成 String，Java 侧就会抛
+  // "Java exception was raised during method invocation" —— 这就是之前写入失败的原因。
+  //
+  // 但也有管理器（部分独立 WebUI 壳）自己包了一层，能收函数。所以这里列全，
+  // 先用 echo 探一次，哪个能回包就固定用哪个。
+  let cbSeq = 0;
+  function namedCallback(cb) {
+    const name = '__lf_exec_' + Date.now() + '_' + (++cbSeq);
+    global[name] = (errno, out, err) => {
+      try { delete global[name]; } catch (e) { /* ignore */ }
+      cb(errno, out, err);
+    };
+    return name;
+  }
+
   const EXEC_STYLES = [
+    // 官方形式：函数名当字符串传，options 也是 JSON 字符串
+    {
+      id: 'cbname',
+      call: (cmd, cb) => {
+        const name = namedCallback(cb);
+        try {
+          KSU.exec(cmd, JSON.stringify({ cwd: MODDIR }), name);
+        } catch (e) {
+          try { delete global[name]; } catch (e2) { /* ignore */ }
+          throw e;
+        }
+      }
+    },
+    // 两参重载：没有 options
+    {
+      id: 'cbname2',
+      call: (cmd, cb) => {
+        const name = namedCallback(cb);
+        try {
+          KSU.exec(cmd, name);
+        } catch (e) {
+          try { delete global[name]; } catch (e2) { /* ignore */ }
+          throw e;
+        }
+      }
+    },
+    // 包了一层的实现，可以直接收函数
     { id: 'cb2', call: (cmd, cb) => KSU.exec(cmd, cb) },
     { id: 'opts', call: (cmd, cb) => KSU.exec(cmd, { cwd: MODDIR }, cb) },
-    { id: 'json', call: (cmd, cb) => KSU.exec(cmd, JSON.stringify({ cwd: MODDIR }), cb) }
+    { id: 'json', call: (cmd, cb) => KSU.exec(cmd, JSON.stringify({ cwd: MODDIR }), cb) },
+    // 同步返回 stdout（官方 exec(cmd) 会阻塞 UI，只作兜底）
+    { id: 'sync', call: (cmd) => KSU.exec(cmd) },
+    // Promise 风格
+    { id: 'p2json', call: (cmd) => KSU.exec(cmd, JSON.stringify({ cwd: MODDIR })) },
+    { id: 'p2obj', call: (cmd) => KSU.exec(cmd, { cwd: MODDIR }) },
+    { id: 'p1', call: (cmd) => KSU.exec(cmd) }
   ];
 
   // code === -2 表示「同步抛异常」，也就是调用形式不对，可以换一种再试；

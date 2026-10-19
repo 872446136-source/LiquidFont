@@ -1,5 +1,19 @@
 # 更新日志
 
+## v1.3.4
+
+找到「Java exception was raised during method invocation」的真正原因了。
+
+- KernelSU 的原生桥（`WebViewInterface.kt`）只有三个签名，参数**全是 String**：
+  `exec(cmd)` / `exec(cmd, callbackFunc)` / `exec(cmd, options, callbackFunc)`。
+  回调必须传**全局函数名**，官方 `kernelsu` JS 库就是这么做的：
+  先 `window[name] = fn`，再 `ksu.exec(cmd, JSON.stringify(opts), name)`。
+- v1.3.3 列的三种形式传的都是**函数对象**，在官方管理器上照样转换失败，
+  所以问题没修掉——这次按官方协议重写
+- 探测形式扩到 9 种（函数名 / 两参函数名 / 函数对象三变体 / 同步返回 / Promise 三变体），
+  按顺序试，第一个能回包的固定使用
+- 回调函数用完即删，不会在 window 上留一堆 `__lf_exec_*`
+
 ## v1.3.3
 
 修掉「写入失败：无法创建文件：Error invoking exec: Java exception was raised during method invocation」。
